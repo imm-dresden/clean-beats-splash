@@ -112,21 +112,14 @@ const Auth = () => {
       setEmailStatus({ isChecking: true, isUnique: null });
 
       try {
-        // Use signup attempt to check if email exists
-        const { error } = await supabase.auth.signUp({
-          email,
-          password: 'temp-password-for-checking-123!@#',
-          options: {
-            data: { temp_check: true }
-          }
-        });
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('email', email.toLowerCase())
+          .maybeSingle();
         
-        // If no error, email is available
-        // If error contains "already registered", email exists
-        const emailExists = error?.message?.includes('already registered') || 
-                            error?.message?.includes('User already registered');
-        
-        setEmailStatus({ isChecking: false, isUnique: !emailExists });
+        const isUnique = !data && !error;
+        setEmailStatus({ isChecking: false, isUnique });
       } catch (error) {
         setEmailStatus({ isChecking: false, isUnique: null });
       }
