@@ -112,15 +112,20 @@ const Auth = () => {
       setEmailStatus({ isChecking: true, isUnique: null });
 
       try {
-        // Try to sign in with a fake password to check if email exists
-        const { error } = await supabase.auth.signInWithPassword({
+        // Use signup attempt to check if email exists
+        const { error } = await supabase.auth.signUp({
           email,
-          password: 'fake-password-for-checking'
+          password: 'temp-password-for-checking-123!@#',
+          options: {
+            data: { temp_check: true }
+          }
         });
         
-        // If error message contains "Invalid login credentials", email doesn't exist
-        // If error message contains "Email not confirmed" or similar, email exists
-        const emailExists = error?.message && !error.message.includes('Invalid login credentials');
+        // If no error, email is available
+        // If error contains "already registered", email exists
+        const emailExists = error?.message?.includes('already registered') || 
+                            error?.message?.includes('User already registered');
+        
         setEmailStatus({ isChecking: false, isUnique: !emailExists });
       } catch (error) {
         setEmailStatus({ isChecking: false, isUnique: null });
