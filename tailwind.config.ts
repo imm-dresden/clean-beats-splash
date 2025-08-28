@@ -62,13 +62,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				musical: {
-					primary: 'hsl(var(--musical-primary))',
-					secondary: 'hsl(var(--musical-secondary))',
-					electric: 'hsl(var(--electric-blue))',
-					green: 'hsl(var(--electric-green))',
-					deep: 'hsl(var(--deep-purple))'
-				}
+				'musical-primary': 'hsl(var(--musical-primary))',
+				'musical-secondary': 'hsl(var(--musical-secondary))',
+				'musical-electric': 'hsl(var(--electric-blue))',
+				'electric-green': 'hsl(var(--electric-green))',
+				'deep-purple': 'hsl(var(--deep-purple))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
