@@ -47,7 +47,8 @@ All colors MUST be HSL.
     --deep-purple: 280 90% 25%;
     --gradient-musical: linear-gradient(135deg, hsl(260 85% 45%), hsl(280 75% 35%));
     --gradient-electric: linear-gradient(135deg, hsl(195 85% 55%), hsl(150 85% 45%));
-    --gradient-hero: linear-gradient(135deg, hsl(240 25% 8%), hsl(260 85% 15%));
+    /* Light mode gradient */
+    --gradient-hero: linear-gradient(135deg, hsl(230 15% 96%), hsl(260 85% 90%));
     
     /* Animations */
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -104,6 +105,10 @@ All colors MUST be HSL.
     --border: 240 15% 20%;
     --input: 240 15% 20%;
     --ring: 260 85% 55%;
+    
+    /* Dark mode gradient */
+    --gradient-hero: linear-gradient(135deg, hsl(240 25% 8%), hsl(260 85% 15%));
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

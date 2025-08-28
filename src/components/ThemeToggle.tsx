@@ -10,7 +10,7 @@ const ThemeToggle = () => {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-      className="h-12 w-12 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 text-white"
+      className="h-12 w-12 rounded-xl bg-card/50 border border-border hover:bg-card/80 transition-colors"
     >
       <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
