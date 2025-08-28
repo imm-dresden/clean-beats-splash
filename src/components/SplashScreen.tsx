@@ -33,11 +33,7 @@ const SplashScreen = () => {
       }`}>
         <div className="absolute inset-0 bg-gradient-to-r from-musical-primary to-accent rounded-full blur-xl opacity-30 animate-pulse-slow" />
         <div className="relative w-24 h-24 bg-accent/20 rounded-full flex items-center justify-center backdrop-blur-sm shadow-deep border border-white/10">
-          <img 
-            src="/lovable-uploads/08764610-4eba-4667-874c-4f88552bd1ea.png" 
-            alt="Clean Beats Logo" 
-            className="w-16 h-16 animate-glow"
-          />
+          <Music className="w-12 h-12 text-accent animate-glow" />
         </div>
       </div>
 
