@@ -1,25 +1,214 @@
-import { useState } from "react";
-import { Music, Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Music, Eye, EyeOff, Mail, Lock, User, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+// Password validation interface
+interface PasswordRequirement {
+  label: string;
+  test: (password: string) => boolean;
+}
+
+const passwordRequirements: PasswordRequirement[] = [
+  { label: "8-16 characters", test: (pwd) => pwd.length >= 8 && pwd.length <= 16 },
+  { label: "One uppercase letter", test: (pwd) => /[A-Z]/.test(pwd) },
+  { label: "One lowercase letter", test: (pwd) => /[a-z]/.test(pwd) },
+  { label: "One number", test: (pwd) => /\d/.test(pwd) },
+  { label: "One special character", test: (pwd) => /[!@#$%^&*(),.?":{}|<>]/.test(pwd) },
+];
 
 const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("signin");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleAuth = async (e: React.FormEvent) => {
+  // Form states
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    username: "",
+    displayName: "",
+  });
+
+  // Real-time password validation
+  const [passwordValidation, setPasswordValidation] = useState(
+    passwordRequirements.map(() => false)
+  );
+
+  // Check password requirements in real-time
+  useEffect(() => {
+    const validation = passwordRequirements.map(req => req.test(formData.password));
+    setPasswordValidation(validation);
+  }, [formData.password]);
+
+  const isPasswordValid = passwordValidation.every(valid => valid);
+
+  // Check username uniqueness
+  const checkUsernameUnique = async (username: string): Promise<boolean> => {
+    if (username.length < 3) return false;
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', username.toLowerCase())
+      .maybeSingle();
+    
+    return !data && !error;
+  };
+
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate authentication
-    setTimeout(() => {
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        toast({
+          title: "Sign In Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        navigate("/home");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      navigate("/home");
-    }, 1500);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Validate password
+      if (!isPasswordValid) {
+        toast({
+          title: "Password Invalid",
+          description: "Please meet all password requirements",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check username uniqueness
+      const isUsernameUnique = await checkUsernameUnique(formData.username);
+      if (!isUsernameUnique) {
+        toast({
+          title: "Username Taken",
+          description: "This username is already taken. Please choose another.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            username: formData.username.toLowerCase(),
+            display_name: formData.displayName,
+          }
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          toast({
+            title: "Email Already Exists",
+            description: "This email is already registered. Please sign in instead.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Sign Up Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Account Created!",
+          description: "Please check your email to verify your account.",
+        });
+        setActiveTab("signin");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!formData.email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) {
+        toast({
+          title: "Reset Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Reset Email Sent",
+          description: "Check your email for password reset instructions",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -44,14 +233,14 @@ const Auth = () => {
           </CardHeader>
           
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin">
-                <form onSubmit={handleAuth} className="space-y-4">
+                <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -59,6 +248,8 @@ const Auth = () => {
                         type="email"
                         placeholder="Email address"
                         className="pl-10"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
                         required
                       />
                     </div>
@@ -71,6 +262,8 @@ const Auth = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         className="pl-10 pr-10"
+                        value={formData.password}
+                        onChange={(e) => handleInputChange('password', e.target.value)}
                         required
                       />
                       <button
@@ -94,19 +287,46 @@ const Auth = () => {
                       "Sign In"
                     )}
                   </Button>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-sm text-accent hover:text-accent/80 underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
                 </form>
               </TabsContent>
               
               <TabsContent value="signup">
-                <form onSubmit={handleAuth} className="space-y-4">
+                <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         type="text"
-                        placeholder="Full name"
+                        placeholder="Display name"
                         className="pl-10"
+                        value={formData.displayName}
+                        onChange={(e) => handleInputChange('displayName', e.target.value)}
                         required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Username"
+                        className="pl-10"
+                        value={formData.username}
+                        onChange={(e) => handleInputChange('username', e.target.value.toLowerCase())}
+                        required
+                        minLength={3}
                       />
                     </div>
                   </div>
@@ -118,6 +338,8 @@ const Auth = () => {
                         type="email"
                         placeholder="Email address"
                         className="pl-10"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange('email', e.target.value)}
                         required
                       />
                     </div>
@@ -130,7 +352,11 @@ const Auth = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         className="pl-10 pr-10"
+                        value={formData.password}
+                        onChange={(e) => handleInputChange('password', e.target.value)}
                         required
+                        minLength={8}
+                        maxLength={16}
                       />
                       <button
                         type="button"
@@ -140,12 +366,31 @@ const Auth = () => {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+
+                    {/* Password Requirements */}
+                    {formData.password && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs text-muted-foreground">Password requirements:</p>
+                        {passwordRequirements.map((req, index) => (
+                          <div key={index} className="flex items-center space-x-2 text-xs">
+                            {passwordValidation[index] ? (
+                              <Check className="w-3 h-3 text-green-500" />
+                            ) : (
+                              <X className="w-3 h-3 text-red-500" />
+                            )}
+                            <span className={passwordValidation[index] ? "text-green-500" : "text-red-500"}>
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || !isPasswordValid}
                   >
                     {isLoading ? (
                       <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -153,6 +398,16 @@ const Auth = () => {
                       "Create Account"
                     )}
                   </Button>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-sm text-accent hover:text-accent/80 underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>
