@@ -37,6 +37,18 @@ const Auth = () => {
     displayName: "",
   });
 
+  // Clear form data when switching between tabs for security
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setFormData({
+      email: "",
+      password: "",
+      username: "",
+      displayName: "",
+    });
+    setPasswordValidation(passwordRequirements.map(() => false));
+  };
+
   // Real-time password validation
   const [passwordValidation, setPasswordValidation] = useState(
     passwordRequirements.map(() => false)
@@ -233,7 +245,7 @@ const Auth = () => {
           </CardHeader>
           
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
