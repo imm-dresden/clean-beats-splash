@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SplashScreen from "@/components/SplashScreen";
 import { Music, Play, Heart, Search } from "lucide-react";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
+      // Navigate to home after splash screen
+      setTimeout(() => navigate("/home"), 500);
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [navigate]);
 
   if (showSplash) {
     return <SplashScreen />;
