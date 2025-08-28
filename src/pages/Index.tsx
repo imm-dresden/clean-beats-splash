@@ -10,9 +10,9 @@ const Index = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-      // Navigate to home after splash screen
-      setTimeout(() => navigate("/home"), 500);
-    }, 3000);
+      // Navigate to auth after splash screen
+      setTimeout(() => navigate("/auth"), 500);
+    }, 4000); // Longer duration to enjoy the animation
 
     return () => clearTimeout(timer);
   }, [navigate]);
