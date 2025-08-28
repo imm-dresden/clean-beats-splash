@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Music, Eye, EyeOff, Mail, Lock, User, Check, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Music, Eye, EyeOff, Mail, Lock, User, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,12 +47,25 @@ const Auth = () => {
       displayName: "",
     });
     setPasswordValidation(passwordRequirements.map(() => false));
+    setUsernameStatus({ isChecking: false, isUnique: null });
+    setEmailStatus({ isChecking: false, isUnique: null });
   };
 
   // Real-time password validation
   const [passwordValidation, setPasswordValidation] = useState(
     passwordRequirements.map(() => false)
   );
+
+  // Real-time username and email validation states
+  const [usernameStatus, setUsernameStatus] = useState<{
+    isChecking: boolean;
+    isUnique: boolean | null;
+  }>({ isChecking: false, isUnique: null });
+
+  const [emailStatus, setEmailStatus] = useState<{
+    isChecking: boolean;
+    isUnique: boolean | null;
+  }>({ isChecking: false, isUnique: null });
 
   // Check password requirements in real-time
   useEffect(() => {
@@ -62,7 +75,91 @@ const Auth = () => {
 
   const isPasswordValid = passwordValidation.every(valid => valid);
 
-  // Check username uniqueness
+  // Debounced username uniqueness check
+  const debouncedCheckUsername = useCallback(
+    async (username: string) => {
+      if (username.length < 3) {
+        setUsernameStatus({ isChecking: false, isUnique: null });
+        return;
+      }
+
+      setUsernameStatus({ isChecking: true, isUnique: null });
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', username.toLowerCase())
+          .maybeSingle();
+        
+        const isUnique = !data && !error;
+        setUsernameStatus({ isChecking: false, isUnique });
+      } catch (error) {
+        setUsernameStatus({ isChecking: false, isUnique: null });
+      }
+    },
+    []
+  );
+
+  // Debounced email uniqueness check
+  const debouncedCheckEmail = useCallback(
+    async (email: string) => {
+      if (!email.includes('@')) {
+        setEmailStatus({ isChecking: false, isUnique: null });
+        return;
+      }
+
+      setEmailStatus({ isChecking: true, isUnique: null });
+
+      try {
+        // Try to sign in with a fake password to check if email exists
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: 'fake-password-for-checking'
+        });
+        
+        // If error message contains "Invalid login credentials", email doesn't exist
+        // If error message contains "Email not confirmed" or similar, email exists
+        const emailExists = error?.message && !error.message.includes('Invalid login credentials');
+        setEmailStatus({ isChecking: false, isUnique: !emailExists });
+      } catch (error) {
+        setEmailStatus({ isChecking: false, isUnique: null });
+      }
+    },
+    []
+  );
+
+  // Username validation effect with debounce
+  useEffect(() => {
+    if (activeTab !== 'signup') return;
+    
+    const timeoutId = setTimeout(() => {
+      if (formData.username) {
+        debouncedCheckUsername(formData.username);
+      } else {
+        setUsernameStatus({ isChecking: false, isUnique: null });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.username, activeTab, debouncedCheckUsername]);
+
+  // Email validation effect with debounce
+  useEffect(() => {
+    if (activeTab !== 'signup') return;
+    
+    const timeoutId = setTimeout(() => {
+      if (formData.email) {
+        debouncedCheckEmail(formData.email);
+      } else {
+        setEmailStatus({ isChecking: false, isUnique: null });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email, activeTab, debouncedCheckEmail]);
+
+  // Check username uniqueness (legacy function for signup)
   const checkUsernameUnique = async (username: string): Promise<boolean> => {
     if (username.length < 3) return false;
     
@@ -328,34 +425,84 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="Username"
-                        className="pl-10"
-                        value={formData.username}
-                        onChange={(e) => handleInputChange('username', e.target.value.toLowerCase())}
-                        required
-                        minLength={3}
-                      />
-                    </div>
-                  </div>
+                   <div className="space-y-2">
+                     <div className="relative">
+                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                       <Input
+                         type="text"
+                         placeholder="Username"
+                         className="pl-10 pr-10"
+                         value={formData.username}
+                         onChange={(e) => handleInputChange('username', e.target.value.toLowerCase())}
+                         required
+                         minLength={3}
+                       />
+                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                         {usernameStatus.isChecking ? (
+                           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                         ) : usernameStatus.isUnique === true ? (
+                           <Check className="w-4 h-4 text-green-500" />
+                         ) : usernameStatus.isUnique === false ? (
+                           <X className="w-4 h-4 text-red-500" />
+                         ) : null}
+                       </div>
+                     </div>
+                     {/* Username status message */}
+                     {formData.username.length >= 3 && usernameStatus.isUnique !== null && !usernameStatus.isChecking && (
+                       <div className="flex items-center space-x-2 text-xs">
+                         {usernameStatus.isUnique ? (
+                           <>
+                             <Check className="w-3 h-3 text-green-500" />
+                             <span className="text-green-500">Username is available</span>
+                           </>
+                         ) : (
+                           <>
+                             <X className="w-3 h-3 text-red-500" />
+                             <span className="text-red-500">Username is already taken</span>
+                           </>
+                         )}
+                       </div>
+                     )}
+                   </div>
                   
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="email"
-                        placeholder="Email address"
-                        className="pl-10"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
+                   <div className="space-y-2">
+                     <div className="relative">
+                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                       <Input
+                         type="email"
+                         placeholder="Email address"
+                         className="pl-10 pr-10"
+                         value={formData.email}
+                         onChange={(e) => handleInputChange('email', e.target.value)}
+                         required
+                       />
+                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                         {emailStatus.isChecking ? (
+                           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                         ) : emailStatus.isUnique === true ? (
+                           <Check className="w-4 h-4 text-green-500" />
+                         ) : emailStatus.isUnique === false ? (
+                           <X className="w-4 h-4 text-red-500" />
+                         ) : null}
+                       </div>
+                     </div>
+                     {/* Email status message */}
+                     {formData.email.includes('@') && emailStatus.isUnique !== null && !emailStatus.isChecking && (
+                       <div className="flex items-center space-x-2 text-xs">
+                         {emailStatus.isUnique ? (
+                           <>
+                             <Check className="w-3 h-3 text-green-500" />
+                             <span className="text-green-500">Email is available</span>
+                           </>
+                         ) : (
+                           <>
+                             <X className="w-3 h-3 text-red-500" />
+                             <span className="text-red-500">Email is already registered</span>
+                           </>
+                         )}
+                       </div>
+                     )}
+                   </div>
                   
                   <div className="space-y-2">
                     <div className="relative">
