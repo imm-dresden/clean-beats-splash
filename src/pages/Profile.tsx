@@ -1,4 +1,4 @@
-import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Share } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Share, Camera } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ interface UserProfile {
   username: string;
   bio?: string;
   email?: string;
+  avatar_url?: string;
 }
 
 interface Post {
@@ -83,6 +84,7 @@ const Profile = () => {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -272,6 +274,54 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file || !currentUser) return;
+
+      setUploading(true);
+
+      // Upload to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile with avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('user_id', currentUser.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully",
+      });
+
+      fetchUserProfile();
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to update profile picture",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getDaysUntilDue = (dueDateString?: string) => {
     if (!dueDateString) return null;
     const now = new Date();
@@ -311,8 +361,32 @@ const Profile = () => {
       <div className="px-6 mb-6">
         <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
           <div className="flex items-start space-x-4 mb-4">
-            <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center">
-              <User className="w-10 h-10 text-accent" />
+            <div className="relative">
+              <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center overflow-hidden">
+                {userProfile?.avatar_url ? (
+                  <img 
+                    src={userProfile.avatar_url} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-10 h-10 text-accent" />
+                )}
+              </div>
+              <button 
+                className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors"
+                onClick={() => document.getElementById('avatar-upload')?.click()}
+                disabled={uploading}
+              >
+                <Camera className="w-3 h-3 text-primary-foreground" />
+              </button>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
             <div className="flex-1">
               <h2 className="text-foreground text-xl font-bold">{getUserDisplayName()}</h2>
@@ -376,7 +450,7 @@ const Profile = () => {
       {/* Content Tabs */}
       <div className="px-6">
         <Tabs defaultValue="posts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="posts" className="flex items-center gap-2">
               <Grid className="w-4 h-4" />
               Posts
@@ -384,10 +458,6 @@ const Profile = () => {
             <TabsTrigger value="equipment" className="flex items-center gap-2">
               <Music className="w-4 h-4" />
               Equipment
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Settings
             </TabsTrigger>
           </TabsList>
 
