@@ -1,11 +1,10 @@
-import { LogOut, Settings, Search } from "lucide-react";
+import { LogOut, Settings, Search, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import cleanBeatsLogo from "@/assets/clean-beats-logo.png";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -76,11 +75,9 @@ const Home = () => {
         {/* Header with logo and buttons */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <img 
-              src={cleanBeatsLogo} 
-              alt="Clean Beats Logo" 
-              className="w-12 h-12 rounded-full"
-            />
+            <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center animate-glow">
+              <Music className="w-6 h-6 text-accent" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -105,22 +102,19 @@ const Home = () => {
         </div>
 
         {/* Greeting */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">
+        <div className="mb-4">
+          <h1 className="text-3xl font-bold">
             {greeting}, {getUserDisplayName()}! 👋
           </h1>
-          <p className="text-muted-foreground">
-            Ready to discover new beats?
-          </p>
         </div>
 
         {/* Curved Search Bar */}
         <div className="relative mb-8">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
             <Input
               type="text"
-              placeholder="Search for tracks, artists, or genres..."
+              placeholder="Search gear..."
               className="pl-12 pr-4 py-4 text-lg rounded-full border-2 border-primary/20 bg-card/50 backdrop-blur-sm focus:border-primary focus:bg-card/80 transition-all duration-300 shadow-lg"
             />
           </div>
