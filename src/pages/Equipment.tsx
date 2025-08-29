@@ -77,6 +77,9 @@ const Equipment = () => {
     photo_url: ""
   });
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   const [cleaningFormData, setCleaningFormData] = useState({
     notes: "",
     cleaned_at: new Date().toISOString().slice(0, 16)
@@ -96,6 +99,39 @@ const Equipment = () => {
         description: "You won't receive cleaning reminders.",
         variant: "destructive"
       });
+    }
+  };
+
+  const uploadFile = async (file: File, equipmentId: string): Promise<string | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${equipmentId}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('equipment-photos')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('equipment-photos')
+        .getPublicUrl(fileName);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Upload Error",
+        description: "Failed to upload image",
+        variant: "destructive"
+      });
+      return null;
     }
   };
 
@@ -150,64 +186,135 @@ const Equipment = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const equipmentData = {
-        ...formData,
-        user_id: user.id,
-      };
-
-      const { error } = await supabase
+      // First insert the equipment to get the ID
+      const { data: newEquipment, error: insertError } = await supabase
         .from('equipment')
-        .insert([equipmentData]);
+        .insert([{
+          name: formData.name,
+          type: formData.type,
+          description: formData.description,
+          cleaning_frequency_days: parseInt(formData.cleaning_frequency_days.toString()),
+          notifications_enabled: formData.notifications_enabled,
+          show_on_profile: formData.show_on_profile,
+          icon: formData.icon,
+          user_id: user.id,
+          photo_url: formData.photo_url // Use URL if provided
+        }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
-      toast({
-        title: "Success",
-        description: "Equipment added successfully",
-      });
+      let finalPhotoUrl = formData.photo_url;
 
+      // Upload file if selected
+      if (selectedFile && newEquipment) {
+        const uploadedUrl = await uploadFile(selectedFile, newEquipment.id);
+        if (uploadedUrl) {
+          finalPhotoUrl = uploadedUrl;
+          // Update equipment with uploaded photo URL
+          const { error: updateError } = await supabase
+            .from('equipment')
+            .update({ photo_url: uploadedUrl })
+            .eq('id', newEquipment.id);
+
+          if (updateError) throw updateError;
+          newEquipment.photo_url = uploadedUrl;
+        }
+      }
+
+      // Schedule notification for new equipment
+      if (newEquipment.notifications_enabled && newEquipment.next_cleaning_due) {
+        await notificationService.scheduleCleaningNotification({
+          equipmentId: newEquipment.id,
+          equipmentName: newEquipment.name,
+          nextCleaningDue: newEquipment.next_cleaning_due
+        });
+      }
+
+      setEquipment([...equipment, newEquipment]);
       setIsAddDialogOpen(false);
       resetForm();
-      fetchEquipment();
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Equipment added successfully!"
+      });
+    } catch (error: any) {
+      console.error('Error adding equipment:', error);
       toast({
         title: "Error",
         description: "Failed to add equipment",
-        variant: "destructive",
+        variant: "destructive"
       });
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEquipment) return;
+    setUploading(true);
 
     try {
-      const { error } = await supabase
+      let finalPhotoUrl = formData.photo_url;
+
+      // Upload new file if selected
+      if (selectedFile) {
+        const uploadedUrl = await uploadFile(selectedFile, selectedEquipment.id);
+        if (uploadedUrl) {
+          finalPhotoUrl = uploadedUrl;
+        }
+      }
+
+      const { data, error } = await supabase
         .from('equipment')
-        .update(formData)
-        .eq('id', selectedEquipment.id);
+        .update({
+          ...formData,
+          photo_url: finalPhotoUrl,
+          cleaning_frequency_days: parseInt(formData.cleaning_frequency_days.toString())
+        })
+        .eq('id', selectedEquipment.id)
+        .select()
+        .single();
 
       if (error) throw error;
 
+      // Cancel old notification and schedule new one if needed
+      await notificationService.cancelNotification(selectedEquipment.id);
+      if (data.notifications_enabled && data.next_cleaning_due) {
+        await notificationService.scheduleCleaningNotification({
+          equipmentId: data.id,
+          equipmentName: data.name,
+          nextCleaningDue: data.next_cleaning_due
+        });
+      }
+
+      setEquipment(equipment.map(item => 
+        item.id === selectedEquipment.id ? data : item
+      ));
+      setIsEditDialogOpen(false);
+      setSelectedEquipment(null);
+      resetForm();
       toast({
         title: "Success",
-        description: "Equipment updated successfully",
+        description: "Equipment updated successfully!"
       });
-
-      setIsEditDialogOpen(false);
-      resetForm();
-      fetchEquipment();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error updating equipment:', error);
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to update equipment",
-        variant: "destructive",
+        variant: "destructive"
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -243,31 +350,76 @@ const Equipment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if equipment was already cleaned today
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingLogs, error: checkError } = await supabase
+        .from('cleaning_logs')
+        .select('id')
+        .eq('equipment_id', selectedEquipment.id)
+        .eq('user_id', user.id)
+        .gte('cleaned_at', today + 'T00:00:00.000Z')
+        .lt('cleaned_at', today + 'T23:59:59.999Z');
+
+      if (checkError) throw checkError;
+
+      if (existingLogs && existingLogs.length > 0) {
+        toast({
+          title: "Already Cleaned Today",
+          description: "This equipment has already been cleaned today. Only one cleaning per day is allowed.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const cleanedAt = new Date(cleaningFormData.cleaned_at).toISOString();
+      const nextDue = new Date(cleanedAt);
+      nextDue.setDate(nextDue.getDate() + selectedEquipment.cleaning_frequency_days);
+
       const { error } = await supabase
         .from('cleaning_logs')
         .insert([{
           equipment_id: selectedEquipment.id,
           user_id: user.id,
-          cleaned_at: new Date(cleaningFormData.cleaned_at).toISOString(),
+          cleaned_at: cleanedAt,
           notes: cleaningFormData.notes,
         }]);
 
       if (error) throw error;
 
+      // Update the equipment with new cleaning date
+      const updatedEquipment = equipment.map(item => 
+        item.id === selectedEquipment.id 
+          ? { ...item, last_cleaned_at: cleanedAt, next_cleaning_due: nextDue.toISOString() }
+          : item
+      );
+      setEquipment(updatedEquipment);
+
+      // Schedule new notification if notifications are enabled
+      const updatedItem = updatedEquipment.find(item => item.id === selectedEquipment.id);
+      if (updatedItem?.notifications_enabled && nextDue) {
+        await notificationService.scheduleCleaningNotification({
+          equipmentId: updatedItem.id,
+          equipmentName: updatedItem.name,
+          nextCleaningDue: nextDue.toISOString()
+        });
+      }
+      
+      // Refresh cleaning logs
+      fetchCleaningLogs();
+      
+      setIsCleaningDialogOpen(false);
+      setSelectedEquipment(null);
+      setCleaningFormData({ notes: "", cleaned_at: new Date().toISOString().slice(0, 16) });
       toast({
         title: "Success",
-        description: "Cleaning logged successfully",
+        description: "Cleaning logged successfully!"
       });
-
-      setIsCleaningDialogOpen(false);
-      setCleaningFormData({ notes: "", cleaned_at: new Date().toISOString().slice(0, 16) });
-      fetchEquipment();
-      fetchCleaningLogs();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error logging cleaning:', error);
       toast({
         title: "Error",
         description: "Failed to log cleaning",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -283,6 +435,7 @@ const Equipment = () => {
       icon: "other",
       photo_url: ""
     });
+    setSelectedFile(null);
     setSelectedEquipment(null);
   };
 
@@ -298,6 +451,7 @@ const Equipment = () => {
       icon: item.icon || "other",
       photo_url: item.photo_url || ""
     });
+    setSelectedFile(null);
     setIsEditDialogOpen(true);
   };
 
@@ -461,14 +615,30 @@ const Equipment = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="photo">Equipment Photo (optional)</Label>
-                  <Input
-                    id="photo"
-                    type="url"
-                    value={formData.photo_url}
-                    onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                    placeholder="https://example.com/photo.jpg"
-                  />
+                  <Label htmlFor="photo">Equipment Photo</Label>
+                  <div className="space-y-3">
+                    <Input
+                      id="photo"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      className="cursor-pointer"
+                    />
+                    <div className="text-sm text-muted-foreground">
+                      Or provide a URL:
+                    </div>
+                    <Input
+                      type="url"
+                      value={formData.photo_url}
+                      onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                    {(selectedFile || formData.photo_url) && (
+                      <div className="text-sm text-muted-foreground">
+                        {selectedFile ? `Selected: ${selectedFile.name}` : `URL: ${formData.photo_url}`}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="frequency">Cleaning Frequency (days)</Label>
@@ -497,7 +667,9 @@ const Equipment = () => {
                   />
                   <Label htmlFor="profile">Show on profile</Label>
                 </div>
-                <Button type="submit" className="w-full">Add Equipment</Button>
+                <Button type="submit" className="w-full" disabled={uploading}>
+                  {uploading ? "Adding..." : "Add Equipment"}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -813,16 +985,32 @@ const Equipment = () => {
                   className="min-h-[80px]"
                 />
               </div>
-              <div>
-                <Label htmlFor="edit-photo">Equipment Photo (optional)</Label>
-                <Input
-                  id="edit-photo"
-                  type="url"
-                  value={formData.photo_url}
-                  onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                  placeholder="https://example.com/photo.jpg"
-                />
-              </div>
+                  <div>
+                    <Label htmlFor="edit-photo">Equipment Photo</Label>
+                    <div className="space-y-3">
+                      <Input
+                        id="edit-photo"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        Or provide a URL:
+                      </div>
+                      <Input
+                        type="url"
+                        value={formData.photo_url}
+                        onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                        placeholder="https://example.com/photo.jpg"
+                      />
+                      {(selectedFile || formData.photo_url) && (
+                        <div className="text-sm text-muted-foreground">
+                          {selectedFile ? `Selected: ${selectedFile.name}` : `Current: ${formData.photo_url}`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
               <div>
                 <Label htmlFor="edit-frequency">Cleaning Frequency (days)</Label>
                 <Input
@@ -850,7 +1038,9 @@ const Equipment = () => {
                 />
                 <Label htmlFor="edit-profile">Show on profile</Label>
               </div>
-              <Button type="submit" className="w-full">Update Equipment</Button>
+                  <Button type="submit" className="w-full" disabled={uploading}>
+                    {uploading ? "Updating..." : "Update Equipment"}
+                  </Button>
             </form>
           </DialogContent>
         </Dialog>
