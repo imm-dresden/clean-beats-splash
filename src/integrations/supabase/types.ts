@@ -85,8 +85,6 @@ export type Database = {
           id: string
           notes: string | null
           photo_url: string | null
-          streak_after_cleaning: number | null
-          streak_before_cleaning: number | null
           user_id: string
         }
         Insert: {
@@ -96,8 +94,6 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_url?: string | null
-          streak_after_cleaning?: number | null
-          streak_before_cleaning?: number | null
           user_id: string
         }
         Update: {
@@ -107,8 +103,6 @@ export type Database = {
           id?: string
           notes?: string | null
           photo_url?: string | null
-          streak_after_cleaning?: number | null
-          streak_before_cleaning?: number | null
           user_id?: string
         }
         Relationships: [
@@ -123,15 +117,12 @@ export type Database = {
       }
       equipment: {
         Row: {
-          best_streak: number
           cleaning_frequency_days: number
           created_at: string
-          current_streak: number
           description: string | null
           icon: string | null
           id: string
           last_cleaned_at: string | null
-          last_streak_date: string | null
           name: string
           next_cleaning_due: string | null
           notifications_enabled: boolean
@@ -142,15 +133,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          best_streak?: number
           cleaning_frequency_days?: number
           created_at?: string
-          current_streak?: number
           description?: string | null
           icon?: string | null
           id?: string
           last_cleaned_at?: string | null
-          last_streak_date?: string | null
           name: string
           next_cleaning_due?: string | null
           notifications_enabled?: boolean
@@ -161,15 +149,12 @@ export type Database = {
           user_id: string
         }
         Update: {
-          best_streak?: number
           cleaning_frequency_days?: number
           created_at?: string
-          current_streak?: number
           description?: string | null
           icon?: string | null
           id?: string
           last_cleaned_at?: string | null
-          last_streak_date?: string | null
           name?: string
           next_cleaning_due?: string | null
           notifications_enabled?: boolean
@@ -456,21 +441,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_following_top_streaks: {
-        Args: { p_limit?: number; p_user_id: string }
-        Returns: {
-          avatar_url: string
-          best_streak: number
-          display_name: string
-          equipment_name: string
-          user_id: string
-          username: string
-        }[]
-      }
-      get_user_best_streak: {
-        Args: { p_user_id: string }
-        Returns: number
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
