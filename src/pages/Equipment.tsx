@@ -550,12 +550,13 @@ const Equipment = () => {
                 Add Equipment
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Add New Equipment</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
+              <div className="flex-1 overflow-y-auto">
+                <form onSubmit={handleSubmit} className="space-y-4 p-1">
+                  <div>
                   <Label htmlFor="name">Equipment Name</Label>
                   <Input
                     id="name"
@@ -667,10 +668,13 @@ const Equipment = () => {
                   />
                   <Label htmlFor="profile">Show on profile</Label>
                 </div>
-                <Button type="submit" className="w-full" disabled={uploading}>
-                  {uploading ? "Adding..." : "Add Equipment"}
-                </Button>
-              </form>
+                  <div className="flex-shrink-0 pt-4 border-t">
+                    <Button type="submit" className="w-full" disabled={uploading}>
+                      {uploading ? "Adding..." : "Add Equipment"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -921,12 +925,13 @@ const Equipment = () => {
 
         {/* Edit Equipment Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Equipment</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle>Edit Equipment</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto">
+                <form onSubmit={handleUpdate} className="space-y-4 p-1">
+                  <div>
                 <Label htmlFor="edit-name">Equipment Name</Label>
                 <Input
                   id="edit-name"
@@ -1038,21 +1043,25 @@ const Equipment = () => {
                 />
                 <Label htmlFor="edit-profile">Show on profile</Label>
               </div>
-                  <Button type="submit" className="w-full" disabled={uploading}>
-                    {uploading ? "Updating..." : "Update Equipment"}
-                  </Button>
-            </form>
-          </DialogContent>
+                  <div className="flex-shrink-0 pt-4 border-t">
+                    <Button type="submit" className="w-full" disabled={uploading}>
+                      {uploading ? "Updating..." : "Update Equipment"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </DialogContent>
         </Dialog>
 
         {/* Log Cleaning Dialog */}
         <Dialog open={isCleaningDialogOpen} onOpenChange={setIsCleaningDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Log Cleaning - {selectedEquipment?.name}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleLogCleaning} className="space-y-4">
-              <div>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle>Log Cleaning - {selectedEquipment?.name}</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto">
+                <form onSubmit={handleLogCleaning} className="space-y-4 p-1">
+                  <div>
                 <Label htmlFor="cleaned-at">Cleaned At</Label>
                 <Input
                   id="cleaned-at"
@@ -1070,10 +1079,15 @@ const Equipment = () => {
                   onChange={(e) => setCleaningFormData({ ...cleaningFormData, notes: e.target.value })}
                   placeholder="Add any notes about the cleaning..."
                 />
+                  </div>
+                  <div className="flex-shrink-0 pt-4 border-t">
+                    <Button type="submit" className="w-full">
+                      Log Cleaning
+                    </Button>
+                  </div>
+                </form>
               </div>
-              <Button type="submit" className="w-full">Log Cleaning</Button>
-            </form>
-          </DialogContent>
+            </DialogContent>
         </Dialog>
       </div>
     </div>
