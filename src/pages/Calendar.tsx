@@ -1,25 +1,66 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarDays, CheckCircle, Clock, Music } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Music, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+
+interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  icon?: string;
+  cleaning_frequency_days: number;
+  next_cleaning_due?: string;
+  notifications_enabled: boolean;
+}
+
+interface CleaningEvent {
+  id: string;
+  equipmentId: string;
+  equipmentName: string;
+  equipmentType: string;
+  equipmentIcon?: string;
+  date: Date;
+  isOverdue: boolean;
+  isDueToday: boolean;
+  notifications_enabled: boolean;
+}
+
+const equipmentIcons = {
+  guitar: "🎸",
+  drums: "🥁", 
+  microphone: "🎤",
+  speaker: "🔊",
+  keyboard: "🎹",
+  violin: "🎻",
+  trumpet: "🎺",
+  saxophone: "🎷",
+  amplifier: "📢",
+  mixer: "🎛️",
+  headphones: "🎧",
+  other: "🎵"
+};
 
 const Calendar = () => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  
-  // Real events from equipment cleaning schedules
-  const [equipmentData, setEquipmentData] = useState<any[]>([]);
-  const [cleaningLogs, setCleaningLogs] = useState<any[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [cleaningEvents, setCleaningEvents] = useState<CleaningEvent[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchEquipmentData();
-    fetchCleaningLogs();
+    fetchEquipment();
   }, []);
 
-  const fetchEquipmentData = async () => {
+  useEffect(() => {
+    generateCleaningEvents();
+  }, [equipment, currentDate]);
+
+  const fetchEquipment = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -27,223 +68,321 @@ const Calendar = () => {
       const { data, error } = await supabase
         .from('equipment')
         .select('*')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      setEquipmentData(data || []);
-    } catch (error) {
-      console.error('Error fetching equipment:', error);
-    }
-  };
-
-  const fetchCleaningLogs = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('cleaning_logs')
-        .select(`
-          *,
-          equipment:equipment_id (name, type, icon)
-        `)
         .eq('user_id', user.id)
-        .order('cleaned_at', { ascending: false });
+        .order('name');
 
       if (error) throw error;
-      setCleaningLogs(data || []);
+      setEquipment(data || []);
     } catch (error) {
-      console.error('Error fetching cleaning logs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch equipment",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Convert equipment data to events
-  const events = [
-    // Cleaning due dates
-    ...equipmentData.map(item => ({
-      id: `due-${item.id}`,
-      title: `${item.name} Cleaning Due`,
-      date: item.next_cleaning_due ? new Date(item.next_cleaning_due) : null,
-      type: "cleaning_due" as const,
-      equipment: item,
-      log: undefined
-    })).filter(event => event.date),
-    
-    // Past cleaning logs
-    ...cleaningLogs.map(log => ({
-      id: `log-${log.id}`,
-      title: `${log.equipment?.name || 'Equipment'} Cleaned`,
-      date: new Date(log.cleaned_at),
-      type: "cleaning_completed" as const,
-      equipment: undefined,
-      log: log
-    }))
-  ];
+  const generateCleaningEvents = () => {
+    const events: CleaningEvent[] = [];
+    const today = new Date();
+    const oneYearFromToday = addDays(today, 365);
 
-  const getEventsForDate = (date: Date | undefined) => {
-    if (!date) return [];
-    return events.filter(event => 
-      event.date.toDateString() === date.toDateString()
+    equipment.forEach((item) => {
+      if (!item.next_cleaning_due) return;
+
+      const startDate = new Date(item.next_cleaning_due);
+      const frequency = item.cleaning_frequency_days;
+      
+      // Generate recurring events for up to one year
+      let currentEventDate = new Date(startDate);
+      while (currentEventDate <= oneYearFromToday) {
+        const isOverdue = currentEventDate < today && !isSameDay(currentEventDate, today);
+        const isDueToday = isSameDay(currentEventDate, today);
+
+        events.push({
+          id: `${item.id}-${currentEventDate.getTime()}`,
+          equipmentId: item.id,
+          equipmentName: item.name,
+          equipmentType: item.type,
+          equipmentIcon: item.icon,
+          date: new Date(currentEventDate),
+          isOverdue,
+          isDueToday,
+          notifications_enabled: item.notifications_enabled
+        });
+
+        // Add the frequency to get the next cleaning date
+        currentEventDate = addDays(currentEventDate, frequency);
+      }
+    });
+
+    // Sort events by date
+    events.sort((a, b) => a.date.getTime() - b.date.getTime());
+    setCleaningEvents(events);
+  };
+
+  const getEventsForDate = (date: Date) => {
+    return cleaningEvents.filter(event => isSameDay(event.date, date));
+  };
+
+  const getEventsForMonth = () => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    
+    return cleaningEvents.filter(event => 
+      event.date >= monthStart && event.date <= monthEnd
     );
   };
 
-  const getEventTypeColor = (type: string) => {
-    switch (type) {
-      case "cleaning_due": return "bg-orange-500";
-      case "cleaning_completed": return "bg-green-500";
-      case "maintenance": return "bg-blue-500";
-      case "session": return "bg-purple-500";
-      case "inspection": return "bg-yellow-500";
-      default: return "bg-gray-500";
-    }
+  const getDaysInMonth = () => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    return eachDayOfInterval({ start: monthStart, end: monthEnd });
   };
 
-  const getEventTypeIcon = (type: string) => {
-    switch (type) {
-      case "cleaning_due": return <Clock className="w-3 h-3" />;
-      case "cleaning_completed": return <CheckCircle className="w-3 h-3" />;
-      default: return <Music className="w-3 h-3" />;
-    }
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
+    setSelectedDate(null);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground gradient-hero flex items-center justify-center">
+        <div className="text-xl">Loading calendar...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground gradient-hero p-4">
-      <div className="container mx-auto max-w-6xl">
+      <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <CalendarDays className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Calendar</h1>
-          </div>
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Event
-          </Button>
+        <div className="flex items-center gap-3 mb-6">
+          <CalendarIcon className="w-8 h-8 text-accent" />
+          <h1 className="text-3xl font-bold">Cleaning Calendar</h1>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar Component */}
-          <Card className="lg:col-span-2 bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader>
-              <CardTitle>Schedule</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <CalendarComponent
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md border-0 p-3 pointer-events-auto"
-                classNames={{
-                  months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                  month: "space-y-4",
-                  caption: "flex justify-center pt-1 relative items-center",
-                  caption_label: "text-sm font-medium",
-                  nav: "space-x-1 flex items-center",
-                  nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                  nav_button_previous: "absolute left-1",
-                  nav_button_next: "absolute right-1",
-                  table: "w-full border-collapse space-y-1",
-                  head_row: "flex",
-                  head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-                  row: "flex w-full mt-2",
-                  cell: "h-8 w-8 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md",
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground",
-                  day_outside: "text-muted-foreground opacity-50",
-                  day_disabled: "text-muted-foreground opacity-50",
-                  day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                  day_hidden: "invisible",
-                }}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Events Sidebar */}
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-            <CardHeader>
-              <CardTitle>
-                {selectedDate ? `Events for ${selectedDate.toLocaleDateString()}` : "Select a Date"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {getEventsForDate(selectedDate).length > 0 ? (
-                  getEventsForDate(selectedDate).map((event) => (
-                    <div key={event.id} className="p-3 rounded-lg border border-border/50 bg-background/30">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2 h-2 rounded-full ${getEventTypeColor(event.type)}`}></div>
-                        <h3 className="font-medium text-sm">{event.title}</h3>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                          {getEventTypeIcon(event.type)}
-                          {event.type.replace('_', ' ')}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(event.date, 'h:mm a')}
-                        </span>
-                      </div>
-                      {event.equipment && (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Equipment: {event.equipment.name} ({event.equipment.type})
-                        </div>
-                      )}
-                      {event.log?.notes && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Notes: {event.log.notes}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">No events scheduled for this date</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Upcoming Events */}
-        <Card className="mt-6 bg-card/50 backdrop-blur-sm border-border/50">
-          <CardHeader>
-            <CardTitle>Upcoming Cleaning Schedule</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {events
-                .filter(event => event.type === 'cleaning_due' && event.date >= new Date())
-                .sort((a, b) => a.date.getTime() - b.date.getTime())
-                .slice(0, 6)
-                .map((event) => (
-                <div key={event.id} className="p-4 rounded-lg border border-border/50 bg-background/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`w-3 h-3 rounded-full ${getEventTypeColor(event.type)}`}></div>
-                    <h3 className="font-medium text-sm">{event.equipment?.name}</h3>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Calendar View */}
+          <div className="lg:col-span-2">
+            <Card className="glass-card">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">
+                    {format(currentDate, 'MMMM yyyy')}
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigateMonth('prev')}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigateMonth('next')}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2 capitalize">
-                    {event.equipment?.type} • {format(event.date, 'MMM dd, yyyy')}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-1 mb-4">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="grid grid-cols-7 gap-1">
+                  {getDaysInMonth().map(day => {
+                    const dayEvents = getEventsForDate(day);
+                    const hasEvents = dayEvents.length > 0;
+                    const hasOverdue = dayEvents.some(e => e.isOverdue);
+                    const hasDueToday = dayEvents.some(e => e.isDueToday);
+                    
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        onClick={() => setSelectedDate(day)}
+                        className={`
+                          min-h-[60px] p-1 text-sm border rounded-lg transition-colors
+                          ${isSameMonth(day, currentDate) ? 'text-foreground' : 'text-muted-foreground'}
+                          ${isToday(day) ? 'bg-accent text-accent-foreground font-bold' : ''}
+                          ${selectedDate && isSameDay(day, selectedDate) ? 'ring-2 ring-primary' : ''}
+                          ${hasEvents && !isToday(day) ? 'bg-primary/10' : ''}
+                          ${hasOverdue ? 'bg-destructive/20 border-destructive' : ''}
+                          ${hasDueToday ? 'bg-yellow-500/20 border-yellow-500' : ''}
+                          hover:bg-muted
+                        `}
+                      >
+                        <div className="font-medium">{format(day, 'd')}</div>
+                        {hasEvents && (
+                          <div className="flex flex-wrap gap-0.5 mt-1">
+                            {dayEvents.slice(0, 3).map((event, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`
+                                  w-1.5 h-1.5 rounded-full
+                                  ${event.isOverdue ? 'bg-destructive' : 
+                                    event.isDueToday ? 'bg-yellow-500' : 'bg-primary'}
+                                `}
+                              />
+                            ))}
+                            {dayEvents.length > 3 && (
+                              <div className="text-xs">+{dayEvents.length - 3}</div>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Selected Date Events */}
+            {selectedDate && (
+              <Card className="glass-card">
+                <CardHeader>
+                  <CardTitle className="text-lg">
+                    {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {getEventsForDate(selectedDate).length > 0 ? (
+                    <div className="space-y-3">
+                      {getEventsForDate(selectedDate).map((event) => (
+                        <div
+                          key={event.id}
+                          className={`
+                            p-3 rounded-lg border
+                            ${event.isOverdue ? 'bg-destructive/10 border-destructive' : 
+                              event.isDueToday ? 'bg-yellow-500/10 border-yellow-500' : 'bg-primary/10 border-primary'}
+                          `}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              {equipmentIcons[event.equipmentType as keyof typeof equipmentIcons] || event.equipmentIcon || "🎵"}
+                            </span>
+                            <div className="flex-1">
+                              <div className="font-medium">{event.equipmentName}</div>
+                              <div className="text-sm text-muted-foreground capitalize">
+                                {event.equipmentType}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {event.isOverdue && (
+                                <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                              )}
+                              {event.isDueToday && (
+                                <Badge className="text-xs bg-yellow-500 text-yellow-50">Due Today</Badge>
+                              )}
+                              {event.notifications_enabled && (
+                                <div className="text-xs text-muted-foreground">🔔 Enabled</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No cleaning scheduled for this date
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Monthly Summary */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-lg">This Month</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {getEventsForMonth().length > 0 ? (
+                  <div className="space-y-3">
+                    {getEventsForMonth().slice(0, 10).map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                      >
+                        <span className="text-lg">
+                          {equipmentIcons[event.equipmentType as keyof typeof equipmentIcons] || event.equipmentIcon || "🎵"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{event.equipmentName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(event.date, 'MMM d')}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {event.isOverdue && (
+                            <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                          )}
+                          {event.isDueToday && (
+                            <Badge className="text-xs bg-yellow-500 text-yellow-50">Today</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {getEventsForMonth().length > 10 && (
+                      <p className="text-sm text-muted-foreground text-center pt-2">
+                        +{getEventsForMonth().length - 10} more this month
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    No cleaning scheduled this month
                   </p>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                      {getEventTypeIcon(event.type)}
-                      Due for cleaning
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {Math.ceil((event.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Stats</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Total Equipment</span>
+                    <span className="font-medium">{equipment.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">This Month</span>
+                    <span className="font-medium">{getEventsForMonth().length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-destructive">Overdue</span>
+                    <span className="font-medium text-destructive">
+                      {cleaningEvents.filter(e => e.isOverdue).length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-yellow-600">Due Today</span>
+                    <span className="font-medium text-yellow-600">
+                      {cleaningEvents.filter(e => e.isDueToday).length}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
-            {events.filter(event => event.type === 'cleaning_due' && event.date >= new Date()).length === 0 && (
-              <div className="text-center py-8">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <p className="text-muted-foreground">All equipment is up to date!</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
