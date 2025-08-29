@@ -1,4 +1,4 @@
-import { LogOut, Settings, Music } from "lucide-react";
+import { LogOut, Settings, Music, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ const Home = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [greeting, setGreeting] = useState("");
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     // Get current user
@@ -32,6 +33,7 @@ const Home = () => {
     };
     
     getCurrentUser();
+    fetchUnreadNotifications();
 
     // Set greeting based on time
     const hour = new Date().getHours();
@@ -43,6 +45,23 @@ const Home = () => {
       setGreeting("Good Evening");
     }
   }, []);
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      setUnreadNotifications(count || 0);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -80,6 +99,20 @@ const Home = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/notifications")}
+              variant="outline"
+              size="sm"
+              className="gap-2 relative"
+            >
+              <Bell className="w-4 h-4" />
+              Notifications
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </Button>
             <Button
               onClick={() => navigate("/profile")}
               variant="outline"
