@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      cleaning_logs: {
+        Row: {
+          cleaned_at: string
+          created_at: string
+          equipment_id: string
+          id: string
+          notes: string | null
+          photo_url: string | null
+          user_id: string
+        }
+        Insert: {
+          cleaned_at?: string
+          created_at?: string
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          user_id: string
+        }
+        Update: {
+          cleaned_at?: string
+          created_at?: string
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          photo_url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_logs_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment: {
+        Row: {
+          cleaning_frequency_days: number
+          created_at: string
+          icon: string | null
+          id: string
+          last_cleaned_at: string | null
+          name: string
+          next_cleaning_due: string | null
+          notifications_enabled: boolean
+          photo_url: string | null
+          show_on_profile: boolean
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cleaning_frequency_days?: number
+          created_at?: string
+          icon?: string | null
+          id?: string
+          last_cleaned_at?: string | null
+          name: string
+          next_cleaning_due?: string | null
+          notifications_enabled?: boolean
+          photo_url?: string | null
+          show_on_profile?: boolean
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cleaning_frequency_days?: number
+          created_at?: string
+          icon?: string | null
+          id?: string
+          last_cleaned_at?: string | null
+          name?: string
+          next_cleaning_due?: string | null
+          notifications_enabled?: boolean
+          photo_url?: string | null
+          show_on_profile?: boolean
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
