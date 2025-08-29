@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import CommentsSection from "./CommentsSection";
 
 interface Post {
   id: string;
@@ -34,6 +35,7 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
+  const [showComments, setShowComments] = useState(false);
   const { toast } = useToast();
 
   const handleLike = async () => {
@@ -113,6 +115,30 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
       toast({
         title: "Error",
         description: "Failed to delete post",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Post by ${post.author?.display_name || post.author?.username}`,
+          text: post.content,
+          url: window.location.href
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Success",
+          description: "Post link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to share post",
         variant: "destructive",
       });
     }
@@ -205,15 +231,27 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
             <span>{likesCount}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2"
+            onClick={() => setShowComments(!showComments)}
+          >
             <MessageCircle className="w-4 h-4" />
             <span>Comment</span>
           </Button>
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-2" onClick={handleShare}>
             <Share className="w-4 h-4" />
             <span>Share</span>
           </Button>
         </div>
+
+        {/* Comments Section */}
+        <CommentsSection 
+          postId={post.id}
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+        />
       </CardContent>
     </Card>
   );

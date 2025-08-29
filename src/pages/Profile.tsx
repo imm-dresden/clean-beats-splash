@@ -1,4 +1,4 @@
-import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Share } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ThemeToggle from "@/components/ThemeToggle";
 import CreatePost from "@/components/CreatePost";
 import PostCard from "@/components/PostCard";
+import FollowButton from "@/components/FollowButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -142,15 +143,18 @@ const Profile = () => {
       // Fetch posts with author info and like counts
       const { data: postsData, error } = await supabase
         .from('posts')
-        .select(`
-          *,
-          profiles!posts_user_id_fkey (display_name, username),
-          post_likes (count)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Get profile info separately
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('display_name, username')
+        .eq('user_id', user.id)
+        .single();
 
       // Transform data to include likes count and check if current user liked
       const postsWithLikes = await Promise.all(
@@ -165,11 +169,11 @@ const Profile = () => {
             .select('id')
             .eq('post_id', post.id)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
           return {
             ...post,
-            author: post.profiles,
+            author: profileData,
             likes_count: likesCount || 0,
             is_liked: !!userLike
           };
@@ -240,6 +244,32 @@ const Profile = () => {
     }
   };
 
+  const handleShareProfile = async () => {
+    try {
+      const profileUrl = `${window.location.origin}/profile?user=${userProfile?.username}`;
+      
+      if (navigator.share) {
+        await navigator.share({
+          title: `${getUserDisplayName()}'s Profile`,
+          text: `Check out ${getUserDisplayName()}'s music profile!`,
+          url: profileUrl
+        });
+      } else {
+        await navigator.clipboard.writeText(profileUrl);
+        toast({
+          title: "Success",
+          description: "Profile link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to share profile",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getDaysUntilDue = (dueDateString?: string) => {
     if (!dueDateString) return null;
     const now = new Date();
@@ -264,7 +294,12 @@ const Profile = () => {
       <div className="px-6 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-          <Settings className="w-6 h-6 text-accent" />
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleShareProfile}>
+              <Share className="w-5 h-5" />
+            </Button>
+            <Settings className="w-6 h-6 text-accent" />
+          </div>
         </div>
       </div>
 
@@ -320,6 +355,14 @@ const Profile = () => {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              {/* Follow Button */}
+              <div className="mt-3">
+                <FollowButton 
+                  targetUserId={userProfile?.user_id || ''} 
+                  onFollowChange={fetchFollowStats}
+                />
               </div>
             </div>
           </div>
