@@ -1,18 +1,83 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, CheckCircle, Clock, Music } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 const Calendar = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  // Mock events data
+  // Real events from equipment cleaning schedules
+  const [equipmentData, setEquipmentData] = useState<any[]>([]);
+  const [cleaningLogs, setCleaningLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchEquipmentData();
+    fetchCleaningLogs();
+  }, []);
+
+  const fetchEquipmentData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setEquipmentData(data || []);
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+    }
+  };
+
+  const fetchCleaningLogs = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('cleaning_logs')
+        .select(`
+          *,
+          equipment:equipment_id (name, type, icon)
+        `)
+        .eq('user_id', user.id)
+        .order('cleaned_at', { ascending: false });
+
+      if (error) throw error;
+      setCleaningLogs(data || []);
+    } catch (error) {
+      console.error('Error fetching cleaning logs:', error);
+    }
+  };
+
+  // Convert equipment data to events
   const events = [
-    { id: 1, title: "Equipment Maintenance", date: new Date(), type: "maintenance" },
-    { id: 2, title: "Studio Session", date: new Date(Date.now() + 86400000), type: "session" },
-    { id: 3, title: "Gear Inspection", date: new Date(Date.now() + 172800000), type: "inspection" },
+    // Cleaning due dates
+    ...equipmentData.map(item => ({
+      id: `due-${item.id}`,
+      title: `${item.name} Cleaning Due`,
+      date: item.next_cleaning_due ? new Date(item.next_cleaning_due) : null,
+      type: "cleaning_due" as const,
+      equipment: item,
+      log: undefined
+    })).filter(event => event.date),
+    
+    // Past cleaning logs
+    ...cleaningLogs.map(log => ({
+      id: `log-${log.id}`,
+      title: `${log.equipment?.name || 'Equipment'} Cleaned`,
+      date: new Date(log.cleaned_at),
+      type: "cleaning_completed" as const,
+      equipment: undefined,
+      log: log
+    }))
   ];
 
   const getEventsForDate = (date: Date | undefined) => {
@@ -24,10 +89,20 @@ const Calendar = () => {
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
+      case "cleaning_due": return "bg-orange-500";
+      case "cleaning_completed": return "bg-green-500";
       case "maintenance": return "bg-blue-500";
-      case "session": return "bg-green-500";
-      case "inspection": return "bg-orange-500";
+      case "session": return "bg-purple-500";
+      case "inspection": return "bg-yellow-500";
       default: return "bg-gray-500";
+    }
+  };
+
+  const getEventTypeIcon = (type: string) => {
+    switch (type) {
+      case "cleaning_due": return <Clock className="w-3 h-3" />;
+      case "cleaning_completed": return <CheckCircle className="w-3 h-3" />;
+      default: return <Music className="w-3 h-3" />;
     }
   };
 
@@ -98,11 +173,27 @@ const Calendar = () => {
                     <div key={event.id} className="p-3 rounded-lg border border-border/50 bg-background/30">
                       <div className="flex items-center gap-2 mb-1">
                         <div className={`w-2 h-2 rounded-full ${getEventTypeColor(event.type)}`}></div>
-                        <h3 className="font-medium">{event.title}</h3>
+                        <h3 className="font-medium text-sm">{event.title}</h3>
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {event.type}
-                      </Badge>
+                      <div className="flex items-center justify-between">
+                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                          {getEventTypeIcon(event.type)}
+                          {event.type.replace('_', ' ')}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {format(event.date, 'h:mm a')}
+                        </span>
+                      </div>
+                      {event.equipment && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Equipment: {event.equipment.name} ({event.equipment.type})
+                        </div>
+                      )}
+                      {event.log?.notes && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Notes: {event.log.notes}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -116,25 +207,41 @@ const Calendar = () => {
         {/* Upcoming Events */}
         <Card className="mt-6 bg-card/50 backdrop-blur-sm border-border/50">
           <CardHeader>
-            <CardTitle>Upcoming Events</CardTitle>
+            <CardTitle>Upcoming Cleaning Schedule</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {events.map((event) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {events
+                .filter(event => event.type === 'cleaning_due' && event.date >= new Date())
+                .sort((a, b) => a.date.getTime() - b.date.getTime())
+                .slice(0, 6)
+                .map((event) => (
                 <div key={event.id} className="p-4 rounded-lg border border-border/50 bg-background/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className={`w-3 h-3 rounded-full ${getEventTypeColor(event.type)}`}></div>
-                    <h3 className="font-medium">{event.title}</h3>
+                    <h3 className="font-medium text-sm">{event.equipment?.name}</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {event.date.toLocaleDateString()}
+                  <p className="text-sm text-muted-foreground mb-2 capitalize">
+                    {event.equipment?.type} • {format(event.date, 'MMM dd, yyyy')}
                   </p>
-                  <Badge variant="secondary" className="text-xs">
-                    {event.type}
-                  </Badge>
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      {getEventTypeIcon(event.type)}
+                      Due for cleaning
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.ceil((event.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
+            {events.filter(event => event.type === 'cleaning_due' && event.date >= new Date()).length === 0 && (
+              <div className="text-center py-8">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                <p className="text-muted-foreground">All equipment is up to date!</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

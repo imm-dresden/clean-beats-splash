@@ -18,6 +18,7 @@ interface Equipment {
   id: string;
   name: string;
   type: string;
+  description?: string;
   cleaning_frequency_days: number;
   notifications_enabled: boolean;
   show_on_profile: boolean;
@@ -67,10 +68,12 @@ const Equipment = () => {
   const [formData, setFormData] = useState({
     name: "",
     type: "",
+    description: "",
     cleaning_frequency_days: 30,
     notifications_enabled: true,
     show_on_profile: false,
-    icon: "other"
+    icon: "other",
+    photo_url: ""
   });
 
   const [cleaningFormData, setCleaningFormData] = useState({
@@ -260,10 +263,12 @@ const Equipment = () => {
     setFormData({
       name: "",
       type: "",
+      description: "",
       cleaning_frequency_days: 30,
       notifications_enabled: true,
       show_on_profile: false,
-      icon: "other"
+      icon: "other",
+      photo_url: ""
     });
     setSelectedEquipment(null);
   };
@@ -273,10 +278,12 @@ const Equipment = () => {
     setFormData({
       name: item.name,
       type: item.type,
+      description: item.description || "",
       cleaning_frequency_days: item.cleaning_frequency_days,
       notifications_enabled: item.notifications_enabled,
       show_on_profile: item.show_on_profile,
-      icon: item.icon || "other"
+      icon: item.icon || "other",
+      photo_url: item.photo_url || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -396,7 +403,7 @@ const Equipment = () => {
                     <SelectTrigger>
                       <SelectValue placeholder="Select equipment type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side="bottom" align="start">
                       <SelectItem value="guitar">Guitar</SelectItem>
                       <SelectItem value="drums">Drums</SelectItem>
                       <SelectItem value="microphone">Microphone</SelectItem>
@@ -418,7 +425,7 @@ const Equipment = () => {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent side="bottom" align="start">
                       {Object.entries(equipmentIcons).map(([key, icon]) => (
                         <SelectItem key={key} value={key}>
                           <span className="flex items-center gap-2">
@@ -429,6 +436,26 @@ const Equipment = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="description">Cleaning Requirements</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Special cleaning instructions or requirements..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="photo">Equipment Photo (optional)</Label>
+                  <Input
+                    id="photo"
+                    type="url"
+                    value={formData.photo_url}
+                    onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                    placeholder="https://example.com/photo.jpg"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="frequency">Cleaning Frequency (days)</Label>
@@ -510,10 +537,21 @@ const Equipment = () => {
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{equipmentIcons[item.icon as keyof typeof equipmentIcons] || equipmentIcons.other}</span>
+                          {item.photo_url ? (
+                            <img 
+                              src={item.photo_url} 
+                              alt={item.name}
+                              className="w-12 h-12 rounded-lg object-cover border border-border/50"
+                            />
+                          ) : (
+                            <span className="text-2xl">{equipmentIcons[item.icon as keyof typeof equipmentIcons] || equipmentIcons.other}</span>
+                          )}
                           <div>
                             <CardTitle className="text-lg">{item.name}</CardTitle>
                             <p className="text-sm text-muted-foreground capitalize">{item.type}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1">
@@ -718,7 +756,7 @@ const Equipment = () => {
                   <SelectTrigger>
                     <SelectValue placeholder="Select equipment type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom" align="start">
                     <SelectItem value="guitar">Guitar</SelectItem>
                     <SelectItem value="drums">Drums</SelectItem>
                     <SelectItem value="microphone">Microphone</SelectItem>
@@ -740,7 +778,7 @@ const Equipment = () => {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom" align="start">
                     {Object.entries(equipmentIcons).map(([key, icon]) => (
                       <SelectItem key={key} value={key}>
                         <span className="flex items-center gap-2">
@@ -751,6 +789,26 @@ const Equipment = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Cleaning Requirements</Label>
+                <Textarea
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Special cleaning instructions or requirements..."
+                  className="min-h-[80px]"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-photo">Equipment Photo (optional)</Label>
+                <Input
+                  id="edit-photo"
+                  type="url"
+                  value={formData.photo_url}
+                  onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                  placeholder="https://example.com/photo.jpg"
+                />
               </div>
               <div>
                 <Label htmlFor="edit-frequency">Cleaning Frequency (days)</Label>

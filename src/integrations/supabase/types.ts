@@ -56,6 +56,7 @@ export type Database = {
         Row: {
           cleaning_frequency_days: number
           created_at: string
+          description: string | null
           icon: string | null
           id: string
           last_cleaned_at: string | null
@@ -71,6 +72,7 @@ export type Database = {
         Insert: {
           cleaning_frequency_days?: number
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           last_cleaned_at?: string | null
@@ -86,6 +88,7 @@ export type Database = {
         Update: {
           cleaning_frequency_days?: number
           created_at?: string
+          description?: string | null
           icon?: string | null
           id?: string
           last_cleaned_at?: string | null
