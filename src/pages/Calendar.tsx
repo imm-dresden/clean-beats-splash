@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar as CalendarIcon, Clock, Music, ChevronLeft, ChevronRight, Plus, MapPin, Edit, Trash } from "lucide-react";
-import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parse } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -85,7 +85,9 @@ const Calendar = () => {
     description: '',
     event_type: 'gig',
     start_date: '',
+    start_time: '',
     end_date: '',
+    end_time: '',
     location: ''
   });
   const { toast } = useToast();
@@ -194,9 +196,16 @@ const Calendar = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     
-    return cleaningEvents.filter(event => 
+    const monthCleaningEvents = cleaningEvents.filter(event => 
       event.date >= monthStart && event.date <= monthEnd
     );
+    
+    const monthRegularEvents = events.filter(event => {
+      const eventDate = new Date(event.start_date);
+      return eventDate >= monthStart && eventDate <= monthEnd;
+    });
+    
+    return { cleaningEvents: monthCleaningEvents, events: monthRegularEvents };
   };
 
   const getDaysInMonth = () => {
@@ -215,11 +224,22 @@ const Calendar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const startDateTime = eventForm.start_date && eventForm.start_time 
+        ? new Date(`${eventForm.start_date}T${eventForm.start_time}`).toISOString()
+        : new Date().toISOString();
+      
+      const endDateTime = eventForm.end_date && eventForm.end_time
+        ? new Date(`${eventForm.end_date}T${eventForm.end_time}`).toISOString()
+        : null;
+
       const eventData = {
-        ...eventForm,
+        title: eventForm.title,
+        description: eventForm.description,
+        event_type: eventForm.event_type,
+        location: eventForm.location,
         user_id: user.id,
-        start_date: eventForm.start_date ? new Date(eventForm.start_date).toISOString() : new Date().toISOString(),
-        end_date: eventForm.end_date ? new Date(eventForm.end_date).toISOString() : null,
+        start_date: startDateTime,
+        end_date: endDateTime,
       };
 
       if (editingEvent) {
@@ -246,7 +266,9 @@ const Calendar = () => {
         description: '',
         event_type: 'gig',
         start_date: '',
+        start_time: '',
         end_date: '',
+        end_time: '',
         location: ''
       });
       fetchEvents();
@@ -281,12 +303,17 @@ const Calendar = () => {
   const openEventDialog = (event?: Event, date?: Date) => {
     if (event) {
       setEditingEvent(event);
+      const startDate = new Date(event.start_date);
+      const endDate = event.end_date ? new Date(event.end_date) : null;
+      
       setEventForm({
         title: event.title,
         description: event.description || '',
         event_type: event.event_type,
-        start_date: format(new Date(event.start_date), "yyyy-MM-dd'T'HH:mm"),
-        end_date: event.end_date ? format(new Date(event.end_date), "yyyy-MM-dd'T'HH:mm") : '',
+        start_date: format(startDate, "yyyy-MM-dd"),
+        start_time: format(startDate, "HH:mm"),
+        end_date: endDate ? format(endDate, "yyyy-MM-dd") : '',
+        end_time: endDate ? format(endDate, "HH:mm") : '',
         location: event.location || ''
       });
     } else {
@@ -296,8 +323,10 @@ const Calendar = () => {
         title: '',
         description: '',
         event_type: 'gig',
-        start_date: format(defaultDate, "yyyy-MM-dd'T'HH:mm"),
+        start_date: format(defaultDate, "yyyy-MM-dd"),
+        start_time: format(new Date(), "HH:mm"),
         end_date: '',
+        end_time: '',
         location: ''
       });
     }
@@ -359,21 +388,39 @@ const Calendar = () => {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="start_date">Start Date & Time</Label>
+                  <Label htmlFor="start_date">Start Date</Label>
                   <Input
                     id="start_date"
-                    type="datetime-local"
+                    type="date"
                     value={eventForm.start_date}
                     onChange={(e) => setEventForm(prev => ({ ...prev, start_date: e.target.value }))}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="end_date">End Date & Time (Optional)</Label>
+                  <Label htmlFor="start_time">Start Time</Label>
+                  <Input
+                    id="start_time"
+                    type="time"
+                    value={eventForm.start_time}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, start_time: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="end_date">End Date (Optional)</Label>
                   <Input
                     id="end_date"
-                    type="datetime-local"
+                    type="date"
                     value={eventForm.end_date}
                     onChange={(e) => setEventForm(prev => ({ ...prev, end_date: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="end_time">End Time (Optional)</Label>
+                  <Input
+                    id="end_time"
+                    type="time"
+                    value={eventForm.end_time}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, end_time: e.target.value }))}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -651,9 +698,46 @@ const Calendar = () => {
                 <CardTitle className="text-lg">This Month</CardTitle>
               </CardHeader>
               <CardContent>
-                {getEventsForMonth().length > 0 ? (
-                  <div className="space-y-3">
-                    {getEventsForMonth().slice(0, 10).map((event) => (
+                {(() => {
+                  const monthData = getEventsForMonth();
+                  const hasAnyEvents = monthData.cleaningEvents.length > 0 || monthData.events.length > 0;
+                  
+                  return hasAnyEvents ? (
+                    <div className="space-y-4">
+                      {/* Regular Events */}
+                      {monthData.events.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm text-muted-foreground">Events</h4>
+                          {monthData.events.slice(0, 5).map((event) => (
+                            <div
+                              key={event.id}
+                              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                            >
+                              <span className="text-lg">
+                                {eventTypeIcons[event.event_type as keyof typeof eventTypeIcons] || "📅"}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{event.title}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {format(new Date(event.start_date), 'MMM d, HH:mm')}
+                                  {event.location && ` • ${event.location}`}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {monthData.events.length > 5 && (
+                            <p className="text-sm text-muted-foreground text-center">
+                              +{monthData.events.length - 5} more events
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Cleaning Events */}
+                      {monthData.cleaningEvents.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm text-muted-foreground">Equipment Cleaning</h4>
+                          {monthData.cleaningEvents.slice(0, 5).map((event) => (
                       <div
                         key={event.id}
                         className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
@@ -675,19 +759,22 @@ const Calendar = () => {
                             <Badge className="text-xs bg-yellow-500 text-yellow-50">Today</Badge>
                           )}
                         </div>
-                      </div>
-                    ))}
-                    {getEventsForMonth().length > 10 && (
-                      <p className="text-sm text-muted-foreground text-center pt-2">
-                        +{getEventsForMonth().length - 10} more this month
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    No cleaning scheduled this month
-                  </p>
-                )}
+                            </div>
+                          ))}
+                          {monthData.cleaningEvents.length > 5 && (
+                            <p className="text-sm text-muted-foreground text-center">
+                              +{monthData.cleaningEvents.length - 5} more cleaning tasks
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No events scheduled this month
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -703,8 +790,12 @@ const Calendar = () => {
                     <span className="font-medium">{equipment.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm">This Month</span>
-                    <span className="font-medium">{getEventsForMonth().length}</span>
+                    <span className="text-sm">Events This Month</span>
+                    <span className="font-medium">{getEventsForMonth().events.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">Cleaning This Month</span>
+                    <span className="font-medium">{getEventsForMonth().cleaningEvents.length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-destructive">Overdue</span>
