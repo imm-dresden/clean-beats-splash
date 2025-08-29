@@ -798,6 +798,10 @@ const Calendar = () => {
                     <span className="font-medium">{getEventsForMonth().cleaningEvents.length}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-sm">Cleaning Today</span>
+                    <span className="font-medium">{getEventsForDate(new Date()).cleaningEvents.length}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-sm text-destructive">Overdue</span>
                     <span className="font-medium text-destructive">
                       {cleaningEvents.filter(e => e.isOverdue).length}
