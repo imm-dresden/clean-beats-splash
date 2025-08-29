@@ -84,7 +84,15 @@ const Equipment = () => {
   useEffect(() => {
     fetchEquipment();
     fetchCleaningLogs();
+    initializeNotifications();
   }, []);
+
+  const initializeNotifications = async () => {
+    const hasPermission = await notificationService.requestPermissions();
+    if (!hasPermission) {
+      toast.error("Notification permissions denied. You won't receive cleaning reminders.");
+    }
+  };
 
   const fetchEquipment = async () => {
     try {
