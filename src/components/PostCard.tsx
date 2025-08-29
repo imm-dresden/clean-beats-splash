@@ -145,18 +145,18 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
   };
 
   return (
-    <Card className="glass-card mb-4">
-      <CardContent className="p-4">
-        {/* Post Header */}
+    <Card className="bg-card border-border overflow-hidden mb-4">
+      {/* Post Header */}
+      <CardContent className="p-4 pb-3">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium">
                 {(post.author?.display_name || post.author?.username || 'User')[0].toUpperCase()}
               </span>
             </div>
             <div>
-              <p className="font-medium text-sm">
+              <p className="font-semibold text-sm">
                 {post.author?.display_name || post.author?.username || 'Unknown User'}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -169,7 +169,7 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
             <div className="flex gap-1">
               <Dialog open={isEditing} onOpenChange={setIsEditing}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <Edit className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
@@ -199,51 +199,69 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
                 </DialogContent>
               </Dialog>
               
-              <Button variant="ghost" size="sm" onClick={handleDelete}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleDelete}>
                 <Trash className="w-4 h-4" />
               </Button>
             </div>
           )}
         </div>
+      </CardContent>
 
-        {/* Post Image */}
-        {post.image_url && (
-          <div className="mb-3">
-            <img 
-              src={post.image_url} 
-              alt="Post image"
-              className="w-full rounded-lg object-cover max-h-96"
-            />
-          </div>
+      {/* Post Image */}
+      {post.image_url && (
+        <div className="w-full">
+          <img 
+            src={post.image_url} 
+            alt="Post image"
+            className="w-full object-cover aspect-square"
+          />
+        </div>
+      )}
+
+      <CardContent className="p-4 pt-3">
+        {/* Post Actions */}
+        <div className="flex items-center gap-4 mb-3">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`gap-2 p-0 h-auto ${isLiked ? 'text-red-500' : 'text-foreground'} hover:text-red-500 transition-colors`}
+            onClick={handleLike}
+          >
+            <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors"
+            onClick={() => setShowComments(!showComments)}
+          >
+            <MessageCircle className="w-6 h-6" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors" 
+            onClick={handleShare}
+          >
+            <Share className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Likes Count */}
+        {likesCount > 0 && (
+          <p className="font-semibold text-sm mb-2">
+            {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+          </p>
         )}
 
         {/* Post Content */}
-        <p className="text-sm mb-3 whitespace-pre-wrap">{post.content}</p>
-
-        {/* Post Actions */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={`gap-2 ${isLiked ? 'text-red-500' : ''}`}
-            onClick={handleLike}
-          >
-            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-            <span>{likesCount}</span>
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="gap-2"
-            onClick={() => setShowComments(!showComments)}
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span>Comment</span>
-          </Button>
-          <Button variant="ghost" size="sm" className="gap-2" onClick={handleShare}>
-            <Share className="w-4 h-4" />
-            <span>Share</span>
-          </Button>
+        <div className="space-y-1">
+          <p className="text-sm">
+            <span className="font-semibold mr-2">
+              {post.author?.display_name || post.author?.username || 'Unknown User'}
+            </span>
+            <span className="whitespace-pre-wrap">{post.content}</span>
+          </p>
         </div>
 
         {/* Comments Section */}
