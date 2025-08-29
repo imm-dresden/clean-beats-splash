@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ const Settings = () => {
   const [email, setEmail] = useState("");
   const [notifications, setNotifications] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
@@ -107,20 +109,19 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-      try {
-        // Note: In a real app, you'd want to handle account deletion more carefully
-        toast({
-          title: "Account Deletion",
-          description: "Please contact support to delete your account",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to delete account",
-          variant: "destructive",
-        });
-      }
+    try {
+      // Note: In a real app, you'd want to handle account deletion more carefully
+      toast({
+        title: "Account Deletion",
+        description: "Please contact support to delete your account",
+      });
+      setShowDeleteDialog(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete account",
+        variant: "destructive",
+      });
     }
   };
 
@@ -282,14 +283,36 @@ const Settings = () => {
               Sign Out
             </Button>
             
-            <Button
-              onClick={handleDeleteAccount}
-              variant="destructive"
-              className="w-full flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Account
-            </Button>
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="w-full flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete your
+                    account and remove all your data from our servers including your posts,
+                    followers, and equipment information.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, delete my account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>
