@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      cleaning_equipment: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          last_restocked_at: string | null
+          name: string
+          next_replacement_due: string | null
+          notes: string | null
+          photo_url: string | null
+          purchase_date: string | null
+          quantity: number
+          replacement_frequency_days: number | null
+          show_on_profile: boolean
+          supplier: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          last_restocked_at?: string | null
+          name: string
+          next_replacement_due?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          purchase_date?: string | null
+          quantity?: number
+          replacement_frequency_days?: number | null
+          show_on_profile?: boolean
+          supplier?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          last_restocked_at?: string | null
+          name?: string
+          next_replacement_due?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          purchase_date?: string | null
+          quantity?: number
+          replacement_frequency_days?: number | null
+          show_on_profile?: boolean
+          supplier?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cleaning_logs: {
         Row: {
           cleaned_at: string

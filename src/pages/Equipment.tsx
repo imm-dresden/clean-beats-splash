@@ -33,6 +33,26 @@ interface Equipment {
   created_at: string;
 }
 
+interface CleaningEquipment {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  photo_url?: string;
+  icon?: string;
+  quantity: number;
+  purchase_date?: string;
+  replacement_frequency_days?: number;
+  next_replacement_due?: string;
+  last_restocked_at?: string;
+  cost_per_unit?: number;
+  supplier?: string;
+  notes?: string;
+  show_on_profile: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface CleaningLog {
   id: string;
   equipment_id: string;
@@ -41,6 +61,22 @@ interface CleaningLog {
   photo_url?: string;
   equipment?: { name: string; type: string };
 }
+
+const cleaningEquipmentIcons = {
+  cloth: "🧽",
+  brush: "🧹", 
+  spray: "🧴",
+  polish: "✨",
+  oil: "💧",
+  string_cleaner: "🎻",
+  drum_cleaner: "🥁",
+  case_cleaner: "🧳",
+  disinfectant: "🦠",
+  vacuum: "🌪️",
+  microfiber: "🧽",
+  solution: "🧪",
+  other: "🧰"
+};
 
 const equipmentIcons = {
   guitar: "🎸",
@@ -59,13 +95,19 @@ const equipmentIcons = {
 
 const Equipment = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [cleaningEquipment, setCleaningEquipment] = useState<CleaningEquipment[]>([]);
   const [cleaningLogs, setCleaningLogs] = useState<CleaningLog[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCleaningDialogOpen, setIsCleaningDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isAddCleaningEquipmentDialogOpen, setIsAddCleaningEquipmentDialogOpen] = useState(false);
+  const [isEditCleaningEquipmentDialogOpen, setIsEditCleaningEquipmentDialogOpen] = useState(false);
+  const [isCleaningEquipmentDetailDialogOpen, setIsCleaningEquipmentDetailDialogOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [selectedCleaningEquipment, setSelectedCleaningEquipment] = useState<CleaningEquipment | null>(null);
   const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
+  const [detailCleaningEquipment, setDetailCleaningEquipment] = useState<CleaningEquipment | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -82,6 +124,20 @@ const Equipment = () => {
     photo_url: ""
   });
 
+  const [cleaningEquipmentFormData, setCleaningEquipmentFormData] = useState({
+    name: "",
+    type: "",
+    description: "",
+    quantity: 1,
+    replacement_frequency_days: 90,
+    cost_per_unit: 0,
+    supplier: "",
+    notes: "",
+    show_on_profile: false,
+    icon: "other",
+    photo_url: ""
+  });
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -92,6 +148,7 @@ const Equipment = () => {
 
   useEffect(() => {
     fetchEquipment();
+    fetchCleaningEquipment();
     fetchCleaningLogs();
     initializeNotifications();
   }, []);
@@ -137,6 +194,28 @@ const Equipment = () => {
         variant: "destructive"
       });
       return null;
+    }
+  };
+
+  const fetchCleaningEquipment = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('cleaning_equipment')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) throw error;
+      setCleaningEquipment(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch cleaning equipment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -470,6 +549,141 @@ const Equipment = () => {
     setIsDetailDialogOpen(true);
   };
 
+  const openCleaningEquipmentDetailDialog = (item: CleaningEquipment) => {
+    setDetailCleaningEquipment(item);
+    setIsCleaningEquipmentDetailDialogOpen(true);
+  };
+
+  const openEditCleaningEquipmentDialog = (item: CleaningEquipment) => {
+    setSelectedCleaningEquipment(item);
+    setCleaningEquipmentFormData({
+      name: item.name,
+      type: item.type,
+      description: item.description || "",
+      quantity: item.quantity,
+      replacement_frequency_days: item.replacement_frequency_days || 90,
+      cost_per_unit: item.cost_per_unit || 0,
+      supplier: item.supplier || "",
+      notes: item.notes || "",
+      show_on_profile: item.show_on_profile,
+      icon: item.icon || "other",
+      photo_url: item.photo_url || ""
+    });
+    setIsEditCleaningEquipmentDialogOpen(true);
+  };
+
+  const handleCleaningEquipmentSubmit = async (e: React.FormEvent, action: 'add' | 'edit') => {
+    e.preventDefault();
+    setUploading(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (action === 'add') {
+        const { data, error } = await supabase
+          .from('cleaning_equipment')
+          .insert([{
+            ...cleaningEquipmentFormData,
+            user_id: user.id,
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setCleaningEquipment([...cleaningEquipment, data]);
+        setIsAddCleaningEquipmentDialogOpen(false);
+        toast({
+          title: "Success",
+          description: "Cleaning equipment added successfully!"
+        });
+      } else {
+        if (!selectedCleaningEquipment) return;
+
+        const { data, error } = await supabase
+          .from('cleaning_equipment')
+          .update(cleaningEquipmentFormData)
+          .eq('id', selectedCleaningEquipment.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setCleaningEquipment(cleaningEquipment.map(item => 
+          item.id === selectedCleaningEquipment.id ? data : item
+        ));
+        setIsEditCleaningEquipmentDialogOpen(false);
+        setSelectedCleaningEquipment(null);
+        toast({
+          title: "Success",
+          description: "Cleaning equipment updated successfully!"
+        });
+      }
+
+      resetCleaningEquipmentForm();
+    } catch (error: any) {
+      console.error('Error with cleaning equipment:', error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action} cleaning equipment`,
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteCleaningEquipment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('cleaning_equipment')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setCleaningEquipment(cleaningEquipment.filter(item => item.id !== id));
+      toast({
+        title: "Success",
+        description: "Cleaning equipment deleted successfully!"
+      });
+    } catch (error: any) {
+      console.error('Error deleting cleaning equipment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete cleaning equipment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const resetCleaningEquipmentForm = () => {
+    setCleaningEquipmentFormData({
+      name: "",
+      type: "",
+      description: "",
+      quantity: 1,
+      replacement_frequency_days: 90,
+      cost_per_unit: 0,
+      supplier: "",
+      notes: "",
+      show_on_profile: false,
+      icon: "other",
+      photo_url: ""
+    });
+    setSelectedFile(null);
+  };
+
+  const getDaysUntilReplacement = (dueDateString?: string) => {
+    if (!dueDateString) return null;
+    const now = new Date();
+    const dueDate = new Date(dueDateString);
+    const diffTime = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   const getFilteredAndSortedEquipment = () => {
     let filtered = equipment;
     
@@ -689,14 +903,15 @@ const Equipment = () => {
           </Dialog>
         </div>
 
-        <Tabs defaultValue="equipment" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="equipment">My Equipment</TabsTrigger>
+        <Tabs defaultValue="musical-equipment" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="musical-equipment">Musical Equipment</TabsTrigger>
+            <TabsTrigger value="cleaning-equipment">Cleaning Equipment</TabsTrigger>
             <TabsTrigger value="schedule">Cleaning Schedule</TabsTrigger>
             <TabsTrigger value="history">Cleaning History</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="equipment">
+          <TabsContent value="musical-equipment">
             {/* Filters and Sort */}
             <div className="flex gap-4 mb-6">
               <Select value={filterType} onValueChange={setFilterType}>
@@ -842,6 +1057,240 @@ const Equipment = () => {
                   <Button onClick={() => setIsAddDialogOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Add Equipment
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="cleaning-equipment">
+            {/* Cleaning Equipment Section */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Cleaning Equipment</h2>
+              <Dialog open={isAddCleaningEquipmentDialogOpen} onOpenChange={setIsAddCleaningEquipmentDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Cleaning Equipment
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+                  <DialogHeader className="flex-shrink-0">
+                    <DialogTitle>Add New Cleaning Equipment</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-y-auto">
+                    <form onSubmit={(e) => handleCleaningEquipmentSubmit(e, 'add')} className="space-y-4 p-1">
+                      <div>
+                        <Label htmlFor="cleaning-name">Item Name</Label>
+                        <Input
+                          id="cleaning-name"
+                          value={cleaningEquipmentFormData.name}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-type">Type</Label>
+                        <Select 
+                          value={cleaningEquipmentFormData.type} 
+                          onValueChange={(value) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select cleaning equipment type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cloth">Cleaning Cloth</SelectItem>
+                            <SelectItem value="brush">Brush</SelectItem>
+                            <SelectItem value="spray">Cleaning Spray</SelectItem>
+                            <SelectItem value="polish">Polish</SelectItem>
+                            <SelectItem value="oil">Oil</SelectItem>
+                            <SelectItem value="string_cleaner">String Cleaner</SelectItem>
+                            <SelectItem value="drum_cleaner">Drum Cleaner</SelectItem>
+                            <SelectItem value="case_cleaner">Case Cleaner</SelectItem>
+                            <SelectItem value="disinfectant">Disinfectant</SelectItem>
+                            <SelectItem value="vacuum">Vacuum</SelectItem>
+                            <SelectItem value="microfiber">Microfiber</SelectItem>
+                            <SelectItem value="solution">Solution</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-icon">Icon</Label>
+                        <Select 
+                          value={cleaningEquipmentFormData.icon} 
+                          onValueChange={(value) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, icon: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(cleaningEquipmentIcons).map(([key, icon]) => (
+                              <SelectItem key={key} value={key}>
+                                <span className="flex items-center gap-2">
+                                  <span>{icon}</span>
+                                  <span className="capitalize">{key.replace('_', ' ')}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-quantity">Quantity</Label>
+                        <Input
+                          id="cleaning-quantity"
+                          type="number"
+                          min="1"
+                          value={cleaningEquipmentFormData.quantity}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, quantity: parseInt(e.target.value) })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-description">Description/Notes</Label>
+                        <Textarea
+                          id="cleaning-description"
+                          value={cleaningEquipmentFormData.description}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, description: e.target.value })}
+                          placeholder="Usage instructions, special notes..."
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-replacement">Replacement Frequency (days)</Label>
+                        <Input
+                          id="cleaning-replacement"
+                          type="number"
+                          min="1"
+                          value={cleaningEquipmentFormData.replacement_frequency_days}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, replacement_frequency_days: parseInt(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-cost">Cost per Unit ($)</Label>
+                        <Input
+                          id="cleaning-cost"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={cleaningEquipmentFormData.cost_per_unit}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, cost_per_unit: parseFloat(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cleaning-supplier">Supplier</Label>
+                        <Input
+                          id="cleaning-supplier"
+                          value={cleaningEquipmentFormData.supplier}
+                          onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, supplier: e.target.value })}
+                          placeholder="Where to buy this item..."
+                        />
+                      </div>
+                      <div className="flex-shrink-0 pt-4 border-t">
+                        <Button type="submit" className="w-full" disabled={uploading}>
+                          {uploading ? "Adding..." : "Add Cleaning Equipment"}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Cleaning Equipment Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {cleaningEquipment.map((item) => (
+                <Card key={item.id} className="glass-card hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardHeader 
+                    className="pb-2"
+                    onClick={() => openCleaningEquipmentDetailDialog(item)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 mb-4">
+                        {item.photo_url ? (
+                          <img 
+                            src={item.photo_url} 
+                            alt={item.name}
+                            className="w-16 h-16 object-cover rounded-lg border"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center text-2xl">
+                            {cleaningEquipmentIcons[item.type as keyof typeof cleaningEquipmentIcons] || item.icon || "🧰"}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{item.name}</h3>
+                          <p className="text-sm text-muted-foreground capitalize">{item.type.replace('_', ' ')}</p>
+                          <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditCleaningEquipmentDialog(item);
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCleaningEquipment(item.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3" onClick={() => openCleaningEquipmentDetailDialog(item)}>
+                    <div className="space-y-2">
+                      {item.next_replacement_due && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Next replacement: </span>
+                          <span className={getDaysUntilReplacement(item.next_replacement_due) !== null && getDaysUntilReplacement(item.next_replacement_due)! < 0 ? "text-red-500" : ""}>
+                            {format(new Date(item.next_replacement_due), 'MMM dd, yyyy')}
+                          </span>
+                        </div>
+                      )}
+                      {item.cost_per_unit && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Cost: </span>
+                          <span>${item.cost_per_unit}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {item.show_on_profile && (
+                        <Badge variant="secondary">
+                          On Profile
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {cleaningEquipment.length === 0 && (
+              <Card className="glass-card">
+                <CardContent className="text-center py-12">
+                  <div className="text-4xl mb-4">🧰</div>
+                  <h3 className="text-lg font-medium mb-2">No cleaning equipment added yet</h3>
+                  <p className="text-muted-foreground mb-4">Start by adding your first cleaning item</p>
+                  <Button onClick={() => setIsAddCleaningEquipmentDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Cleaning Equipment
                   </Button>
                 </CardContent>
               </Card>
@@ -1276,6 +1725,264 @@ const Equipment = () => {
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Log Cleaning
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Cleaning Equipment Dialog */}
+        <Dialog open={isEditCleaningEquipmentDialogOpen} onOpenChange={setIsEditCleaningEquipmentDialogOpen}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle>Edit Cleaning Equipment</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={(e) => handleCleaningEquipmentSubmit(e, 'edit')} className="space-y-4 p-1">
+                <div>
+                  <Label htmlFor="edit-cleaning-name">Item Name</Label>
+                  <Input
+                    id="edit-cleaning-name"
+                    value={cleaningEquipmentFormData.name}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-type">Type</Label>
+                  <Select 
+                    value={cleaningEquipmentFormData.type} 
+                    onValueChange={(value) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select cleaning equipment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cloth">Cleaning Cloth</SelectItem>
+                      <SelectItem value="brush">Brush</SelectItem>
+                      <SelectItem value="spray">Cleaning Spray</SelectItem>
+                      <SelectItem value="polish">Polish</SelectItem>
+                      <SelectItem value="oil">Oil</SelectItem>
+                      <SelectItem value="string_cleaner">String Cleaner</SelectItem>
+                      <SelectItem value="drum_cleaner">Drum Cleaner</SelectItem>
+                      <SelectItem value="case_cleaner">Case Cleaner</SelectItem>
+                      <SelectItem value="disinfectant">Disinfectant</SelectItem>
+                      <SelectItem value="vacuum">Vacuum</SelectItem>
+                      <SelectItem value="microfiber">Microfiber</SelectItem>
+                      <SelectItem value="solution">Solution</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-icon">Icon</Label>
+                  <Select 
+                    value={cleaningEquipmentFormData.icon} 
+                    onValueChange={(value) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, icon: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(cleaningEquipmentIcons).map(([key, icon]) => (
+                        <SelectItem key={key} value={key}>
+                          <span className="flex items-center gap-2">
+                            <span>{icon}</span>
+                            <span className="capitalize">{key.replace('_', ' ')}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-quantity">Quantity</Label>
+                  <Input
+                    id="edit-cleaning-quantity"
+                    type="number"
+                    min="1"
+                    value={cleaningEquipmentFormData.quantity}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, quantity: parseInt(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-description">Description/Notes</Label>
+                  <Textarea
+                    id="edit-cleaning-description"
+                    value={cleaningEquipmentFormData.description}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, description: e.target.value })}
+                    placeholder="Usage instructions, special notes..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-replacement">Replacement Frequency (days)</Label>
+                  <Input
+                    id="edit-cleaning-replacement"
+                    type="number"
+                    min="1"
+                    value={cleaningEquipmentFormData.replacement_frequency_days}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, replacement_frequency_days: parseInt(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-cost">Cost per Unit ($)</Label>
+                  <Input
+                    id="edit-cleaning-cost"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={cleaningEquipmentFormData.cost_per_unit}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, cost_per_unit: parseFloat(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cleaning-supplier">Supplier</Label>
+                  <Input
+                    id="edit-cleaning-supplier"
+                    value={cleaningEquipmentFormData.supplier}
+                    onChange={(e) => setCleaningEquipmentFormData({ ...cleaningEquipmentFormData, supplier: e.target.value })}
+                    placeholder="Where to buy this item..."
+                  />
+                </div>
+                <div className="flex-shrink-0 pt-4 border-t">
+                  <Button type="submit" className="w-full" disabled={uploading}>
+                    {uploading ? "Updating..." : "Update Cleaning Equipment"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Cleaning Equipment Detail Dialog */}
+        <Dialog open={isCleaningEquipmentDetailDialogOpen} onOpenChange={setIsCleaningEquipmentDetailDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-3">
+                {detailCleaningEquipment?.photo_url ? (
+                  <img 
+                    src={detailCleaningEquipment.photo_url} 
+                    alt={detailCleaningEquipment.name}
+                    className="w-12 h-12 object-cover rounded-lg border"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center text-xl">
+                    {detailCleaningEquipment && cleaningEquipmentIcons[detailCleaningEquipment.type as keyof typeof cleaningEquipmentIcons] || detailCleaningEquipment?.icon || "🧰"}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold">{detailCleaningEquipment?.name}</h2>
+                  <p className="text-sm text-muted-foreground capitalize">{detailCleaningEquipment?.type?.replace('_', ' ')}</p>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-6 p-1">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Basic Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Item Type</Label>
+                      <p className="capitalize">{detailCleaningEquipment?.type?.replace('_', ' ')}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Quantity</Label>
+                      <p>{detailCleaningEquipment?.quantity}</p>
+                    </div>
+                  </div>
+                  
+                  {detailCleaningEquipment?.description && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                      <p className="text-sm mt-1">{detailCleaningEquipment.description}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Replacement Schedule */}
+                {detailCleaningEquipment?.replacement_frequency_days && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Replacement Schedule</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <Label className="text-sm font-medium text-muted-foreground">Replacement Frequency</Label>
+                        <p className="text-lg font-medium">Every {detailCleaningEquipment.replacement_frequency_days} days</p>
+                      </div>
+                      
+                      {detailCleaningEquipment?.next_replacement_due && (
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                          <Label className="text-sm font-medium text-muted-foreground">Next Replacement Due</Label>
+                          <p className="text-lg font-medium">{format(new Date(detailCleaningEquipment.next_replacement_due), 'EEEE, MMMM d, yyyy')}</p>
+                          {(() => {
+                            const daysUntilDue = getDaysUntilReplacement(detailCleaningEquipment.next_replacement_due);
+                            return daysUntilDue !== null && (
+                              <p className={`text-sm ${daysUntilDue < 0 ? 'text-red-500' : daysUntilDue === 0 ? 'text-yellow-500' : 'text-green-500'}`}>
+                                {daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 
+                                 daysUntilDue === 0 ? 'Due today' : 
+                                 `${Math.abs(daysUntilDue)} days overdue`}
+                              </p>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cost & Supplier */}
+                {(detailCleaningEquipment?.cost_per_unit || detailCleaningEquipment?.supplier) && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Purchase Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {detailCleaningEquipment?.cost_per_unit && (
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Cost per Unit</Label>
+                          <p>${detailCleaningEquipment.cost_per_unit}</p>
+                        </div>
+                      )}
+                      {detailCleaningEquipment?.supplier && (
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground">Supplier</Label>
+                          <p>{detailCleaningEquipment.supplier}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {detailCleaningEquipment?.notes && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Notes</h3>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm">{detailCleaningEquipment.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 pt-4 border-t">
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    if (detailCleaningEquipment) {
+                      setIsCleaningEquipmentDetailDialogOpen(false);
+                      openEditCleaningEquipmentDialog(detailCleaningEquipment);
+                    }
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Item
                 </Button>
               </div>
             </div>
