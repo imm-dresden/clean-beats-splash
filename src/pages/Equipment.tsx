@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { notificationService } from "@/services/notificationService";
 
 interface Equipment {
   id: string;
@@ -90,7 +91,11 @@ const Equipment = () => {
   const initializeNotifications = async () => {
     const hasPermission = await notificationService.requestPermissions();
     if (!hasPermission) {
-      toast.error("Notification permissions denied. You won't receive cleaning reminders.");
+      toast({
+        title: "Notification permissions denied",
+        description: "You won't receive cleaning reminders.",
+        variant: "destructive"
+      });
     }
   };
 
