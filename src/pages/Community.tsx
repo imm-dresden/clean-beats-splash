@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart, MessageCircle, Share, Search, Calendar, Users, TrendingUp } from "lucide-react";
 import PostCard from "@/components/PostCard";
 import EventCard from "@/components/EventCard";
+import UserSearch from "@/components/UserSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -217,15 +218,21 @@ const Community = () => {
           <TrendingUp className="w-6 h-6 text-accent" />
         </div>
         
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search posts, events, or people..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+        {/* Search Bars */}
+        <div className="space-y-3">
+          <UserSearch
+            placeholder="Search users..."
+            className="w-full"
           />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search posts and events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
       </div>
 

@@ -1,10 +1,10 @@
-import { LogOut, Settings, Search, Music } from "lucide-react";
+import { LogOut, Settings, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
+import UserSearch from "@/components/UserSearch";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -108,16 +108,12 @@ const Home = () => {
           </h1>
         </div>
 
-        {/* Curved Search Bar */}
+        {/* User Search Bar */}
         <div className="relative mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-            <Input
-              type="text"
-              placeholder="Search gear..."
-              className="pl-12 pr-4 py-4 text-lg rounded-full border-2 border-primary/20 bg-card/50 backdrop-blur-sm focus:border-primary focus:bg-card/80 transition-all duration-300 shadow-lg"
-            />
-          </div>
+          <UserSearch
+            placeholder="Search users..."
+            className="relative"
+          />
         </div>
       </div>
     </div>

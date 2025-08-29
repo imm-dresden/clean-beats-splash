@@ -1,6 +1,6 @@
-import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Camera } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Camera, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,7 @@ const equipmentIcons = {
 };
 
 const Profile = () => {
+  const { userId } = useParams();
   const navigate = useNavigate();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -89,26 +90,44 @@ const Profile = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchUserProfile();
-    fetchProfileEquipment();
-    fetchPosts();
-    fetchFollowStats();
+    fetchCurrentUser();
   }, []);
 
-  const fetchUserProfile = async () => {
+  useEffect(() => {
+    if (currentUser) {
+      const targetUserId = userId || currentUser.id;
+      setIsOwnProfile(!userId || userId === currentUser.id);
+      fetchUserProfile(targetUserId);
+      fetchProfileEquipment(targetUserId);
+      fetchPosts(targetUserId);
+      fetchFollowStats(targetUserId);
+    }
+  }, [userId, currentUser]);
+
+  const fetchCurrentUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
       setCurrentUser(user);
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      navigate('/auth');
+    }
+  };
 
+  const fetchUserProfile = async (targetUserId: string) => {
+    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
       
       setUserProfile(profile);
@@ -118,15 +137,12 @@ const Profile = () => {
     }
   };
 
-  const fetchProfileEquipment = async () => {
+  const fetchProfileEquipment = async (targetUserId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('equipment')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .eq('show_on_profile', true)
         .order('name');
 
@@ -143,16 +159,13 @@ const Profile = () => {
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (targetUserId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       // Fetch posts with author info and like counts
       const { data: postsData, error } = await supabase
         .from('posts')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -161,7 +174,7 @@ const Profile = () => {
       const { data: profileData } = await supabase
         .from('profiles')
         .select('display_name, username')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .single();
 
       // Transform data to include likes count and check if current user liked
@@ -172,12 +185,17 @@ const Profile = () => {
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
 
-          const { data: userLike } = await supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', post.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+          // Only check like status for current user if logged in
+          let userLike = null;
+          if (currentUser) {
+            const { data } = await supabase
+              .from('post_likes')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', currentUser.id)
+              .maybeSingle();
+            userLike = data;
+          }
 
           return {
             ...post,
@@ -211,22 +229,19 @@ const Profile = () => {
     }
   };
 
-  const fetchFollowStats = async () => {
+  const fetchFollowStats = async (targetUserId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       // Get followers count
       const { count: followersCount } = await supabase
         .from('followers')
         .select('*', { count: 'exact', head: true })
-        .eq('following_id', user.id);
+        .eq('following_id', targetUserId);
 
       // Get following count
       const { count: followingCount } = await supabase
         .from('followers')
         .select('*', { count: 'exact', head: true })
-        .eq('follower_id', user.id);
+        .eq('follower_id', targetUserId);
 
       setFollowStats({
         followers: followersCount || 0,
@@ -239,13 +254,12 @@ const Profile = () => {
 
   const updateBio = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!currentUser || !isOwnProfile) return;
 
       const { error } = await supabase
         .from('profiles')
         .update({ bio: bioText })
-        .eq('user_id', user.id);
+        .eq('user_id', currentUser.id);
 
       if (error) throw error;
 
@@ -255,7 +269,7 @@ const Profile = () => {
       });
 
       setIsEditingBio(false);
-      fetchUserProfile();
+      fetchUserProfile(currentUser.id);
     } catch (error) {
       toast({
         title: "Error",
@@ -301,7 +315,7 @@ const Profile = () => {
         description: "Profile picture updated successfully",
       });
 
-      fetchUserProfile();
+      fetchUserProfile(currentUser.id);
     } catch (error) {
       toast({
         title: "Error", 
@@ -346,10 +360,21 @@ const Profile = () => {
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
-            <Settings className="w-6 h-6 text-accent" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {userId && (
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            )}
+            <h1 className="text-2xl font-bold text-foreground">
+              {isOwnProfile ? 'Profile' : getUserDisplayName()}
+            </h1>
+          </div>
+          {isOwnProfile && (
+            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+              <Settings className="w-6 h-6 text-accent" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -369,20 +394,24 @@ const Profile = () => {
                   <User className="w-10 h-10 text-accent" />
                 )}
               </div>
-              <button 
-                className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors"
-                onClick={() => document.getElementById('avatar-upload')?.click()}
-                disabled={uploading}
-              >
-                <Camera className="w-3 h-3 text-primary-foreground" />
-              </button>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                className="hidden"
-              />
+              {isOwnProfile && (
+                <>
+                  <button 
+                    className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center hover:bg-primary/80 transition-colors"
+                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                    disabled={uploading}
+                  >
+                    <Camera className="w-3 h-3 text-primary-foreground" />
+                  </button>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </>
+              )}
             </div>
             <div className="flex-1">
               <h2 className="text-foreground text-xl font-bold">{getUserDisplayName()}</h2>
@@ -406,7 +435,7 @@ const Profile = () => {
 
               {/* Bio */}
               <div className="space-y-2">
-                {isEditingBio ? (
+                {isEditingBio && isOwnProfile ? (
                   <div className="space-y-2">
                     <Textarea
                       value={bioText}
@@ -424,20 +453,24 @@ const Profile = () => {
                     <p className="text-sm text-muted-foreground flex-1">
                       {userProfile?.bio || "Music lover | Clean beats enthusiast"}
                     </p>
-                    <Button size="sm" variant="ghost" onClick={() => setIsEditingBio(true)}>
-                      <Edit className="w-3 h-3" />
-                    </Button>
+                    {isOwnProfile && (
+                      <Button size="sm" variant="ghost" onClick={() => setIsEditingBio(true)}>
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Follow Button */}
-              <div className="mt-3">
-                <FollowButton 
-                  targetUserId={userProfile?.user_id || ''} 
-                  onFollowChange={fetchFollowStats}
-                />
-              </div>
+              {!isOwnProfile && (
+                <div className="mt-3">
+                  <FollowButton 
+                    targetUserId={userProfile?.user_id || ''} 
+                    onFollowChange={() => fetchFollowStats(userProfile?.user_id || '')}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -459,7 +492,7 @@ const Profile = () => {
 
           {/* Posts Tab */}
           <TabsContent value="posts" className="mt-6">
-            <CreatePost onPostCreated={fetchPosts} />
+            {isOwnProfile && <CreatePost onPostCreated={() => fetchPosts(currentUser?.id || '')} />}
             
             {posts.length > 0 ? (
               <div className="grid grid-cols-3 gap-1 mt-4">
@@ -700,7 +733,7 @@ const Profile = () => {
         isOpen={isPostModalOpen}
         onClose={handlePostModalClose}
         isOwner={selectedPost?.user_id === currentUser?.id}
-        onPostUpdate={fetchPosts}
+        onPostUpdate={() => fetchPosts(userProfile?.user_id || '')}
       />
     </div>
   );
