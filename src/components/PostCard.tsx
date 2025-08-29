@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share, MoreHorizontal, Edit, Trash } from "lucide-react";
+import { Heart, MessageCircle, Share, MoreHorizontal, Edit, Trash, User } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import CommentsSection from "./CommentsSection";
 
 interface Post {
@@ -19,6 +20,7 @@ interface Post {
   author?: {
     display_name?: string;
     username: string;
+    avatar_url?: string;
   };
   likes_count?: number;
   is_liked?: boolean;
@@ -145,16 +147,17 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden mb-4">
+    <Card className="bg-card border-border overflow-hidden max-w-md mx-auto">
       {/* Post Header */}
-      <CardContent className="p-4 pb-3">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent/20 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium">
-                {(post.author?.display_name || post.author?.username || 'User')[0].toUpperCase()}
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={post.author?.avatar_url} />
+              <AvatarFallback>
+                <User className="w-4 h-4" />
+              </AvatarFallback>
+            </Avatar>
             <div>
               <p className="font-semibold text-sm">
                 {post.author?.display_name || post.author?.username || 'Unknown User'}
@@ -169,8 +172,8 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
             <div className="flex gap-1">
               <Dialog open={isEditing} onOpenChange={setIsEditing}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <Edit className="w-4 h-4" />
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <Edit className="w-3 h-3" />
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -199,8 +202,8 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
                 </DialogContent>
               </Dialog>
               
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleDelete}>
-                <Trash className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleDelete}>
+                <Trash className="w-3 h-3" />
               </Button>
             </div>
           )}
@@ -213,43 +216,43 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
           <img 
             src={post.image_url} 
             alt="Post image"
-            className="w-full object-cover aspect-square"
+            className="w-full object-cover aspect-[4/3]"
           />
         </div>
       )}
 
-      <CardContent className="p-4 pt-3">
+      <CardContent className="p-3">
         {/* Post Actions */}
-        <div className="flex items-center gap-4 mb-3">
+        <div className="flex items-center gap-3 mb-2">
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`gap-2 p-0 h-auto ${isLiked ? 'text-red-500' : 'text-foreground'} hover:text-red-500 transition-colors`}
+            className={`gap-1 p-0 h-auto ${isLiked ? 'text-red-500' : 'text-foreground'} hover:text-red-500 transition-colors`}
             onClick={handleLike}
           >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors"
+            className="gap-1 p-0 h-auto text-foreground hover:text-accent transition-colors"
             onClick={() => setShowComments(!showComments)}
           >
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle className="w-5 h-5" />
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors" 
+            className="gap-1 p-0 h-auto text-foreground hover:text-accent transition-colors" 
             onClick={handleShare}
           >
-            <Share className="w-6 h-6" />
+            <Share className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Likes Count */}
         {likesCount > 0 && (
-          <p className="font-semibold text-sm mb-2">
+          <p className="font-semibold text-xs mb-2">
             {likesCount} {likesCount === 1 ? 'like' : 'likes'}
           </p>
         )}

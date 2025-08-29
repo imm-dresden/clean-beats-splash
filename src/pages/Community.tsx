@@ -227,7 +227,7 @@ const Community = () => {
       </div>
 
       {/* Content */}
-      <div className="px-6 pb-20">
+      <div className="px-4 pb-20 max-w-lg mx-auto">
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="all" className="flex items-center gap-2">
