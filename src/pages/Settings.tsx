@@ -25,6 +25,27 @@ interface UserProfile {
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast({
+          title: "Logout Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        navigate("/auth");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -95,18 +116,6 @@ const Settings = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/auth');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleDeleteAccount = async () => {
     try {
@@ -133,7 +142,7 @@ const Settings = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate(-1)}
             className="p-2"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -275,12 +284,12 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={handleSignOut}
-              variant="outline"
+              onClick={handleLogout}
+              variant="destructive"
               className="w-full flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              Sign Out
+              Logout
             </Button>
             
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

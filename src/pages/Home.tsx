@@ -1,4 +1,4 @@
-import { LogOut, Settings, Music, Bell } from "lucide-react";
+import { Settings, Music, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -63,27 +63,6 @@ const Home = () => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast({
-          title: "Logout Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        navigate("/auth");
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    }
-  };
-
   const getUserDisplayName = () => {
     return user?.profile?.display_name || user?.profile?.username || "User";
   };
@@ -114,22 +93,13 @@ const Home = () => {
               )}
             </Button>
             <Button
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/settings")}
               variant="outline"
               size="sm"
               className="gap-2"
             >
               <Settings className="w-4 h-4" />
               Settings
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
             </Button>
           </div>
         </div>
