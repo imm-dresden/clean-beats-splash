@@ -2,7 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Clock, Music, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarIcon, Clock, Music, ChevronLeft, ChevronRight, Plus, MapPin, Edit, Trash } from "lucide-react";
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +34,19 @@ interface CleaningEvent {
   notifications_enabled: boolean;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  event_type: string;
+  start_date: string;
+  end_date?: string;
+  location?: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const equipmentIcons = {
   guitar: "🎸",
   drums: "🥁", 
@@ -44,16 +62,37 @@ const equipmentIcons = {
   other: "🎵"
 };
 
+const eventTypeIcons = {
+  gig: "🎸",
+  show: "🎭",
+  jam: "🎵",
+  rehearsal: "🎶",
+  recording: "🎙️",
+  other: "📅"
+};
+
 const Calendar = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [cleaningEvents, setCleaningEvents] = useState<CleaningEvent[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    event_type: 'gig',
+    start_date: '',
+    end_date: '',
+    location: ''
+  });
   const { toast } = useToast();
 
   useEffect(() => {
     fetchEquipment();
+    fetchEvents();
   }, []);
 
   useEffect(() => {
@@ -81,6 +120,28 @@ const Calendar = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEvents = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('start_date');
+
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch events",
+        variant: "destructive",
+      });
     }
   };
 
@@ -124,7 +185,9 @@ const Calendar = () => {
   };
 
   const getEventsForDate = (date: Date) => {
-    return cleaningEvents.filter(event => isSameDay(event.date, date));
+    const cleaningEventsForDate = cleaningEvents.filter(event => isSameDay(event.date, date));
+    const regularEventsForDate = events.filter(event => isSameDay(new Date(event.start_date), date));
+    return { cleaningEvents: cleaningEventsForDate, events: regularEventsForDate };
   };
 
   const getEventsForMonth = () => {
@@ -147,6 +210,100 @@ const Calendar = () => {
     setSelectedDate(null);
   };
 
+  const handleEventSubmit = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const eventData = {
+        ...eventForm,
+        user_id: user.id,
+        start_date: eventForm.start_date ? new Date(eventForm.start_date).toISOString() : new Date().toISOString(),
+        end_date: eventForm.end_date ? new Date(eventForm.end_date).toISOString() : null,
+      };
+
+      if (editingEvent) {
+        const { error } = await supabase
+          .from('events')
+          .update(eventData)
+          .eq('id', editingEvent.id);
+        
+        if (error) throw error;
+        toast({ title: "Success", description: "Event updated successfully" });
+      } else {
+        const { error } = await supabase
+          .from('events')
+          .insert([eventData]);
+        
+        if (error) throw error;
+        toast({ title: "Success", description: "Event created successfully" });
+      }
+
+      setShowEventDialog(false);
+      setEditingEvent(null);
+      setEventForm({
+        title: '',
+        description: '',
+        event_type: 'gig',
+        start_date: '',
+        end_date: '',
+        location: ''
+      });
+      fetchEvents();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: editingEvent ? "Failed to update event" : "Failed to create event",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
+      
+      if (error) throw error;
+      toast({ title: "Success", description: "Event deleted successfully" });
+      fetchEvents();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete event",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEventDialog = (event?: Event, date?: Date) => {
+    if (event) {
+      setEditingEvent(event);
+      setEventForm({
+        title: event.title,
+        description: event.description || '',
+        event_type: event.event_type,
+        start_date: format(new Date(event.start_date), "yyyy-MM-dd'T'HH:mm"),
+        end_date: event.end_date ? format(new Date(event.end_date), "yyyy-MM-dd'T'HH:mm") : '',
+        location: event.location || ''
+      });
+    } else {
+      setEditingEvent(null);
+      const defaultDate = date || selectedDate || new Date();
+      setEventForm({
+        title: '',
+        description: '',
+        event_type: 'gig',
+        start_date: format(defaultDate, "yyyy-MM-dd'T'HH:mm"),
+        end_date: '',
+        location: ''
+      });
+    }
+    setShowEventDialog(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground gradient-hero flex items-center justify-center">
@@ -159,9 +316,103 @@ const Calendar = () => {
     <div className="min-h-screen bg-background text-foreground gradient-hero p-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <CalendarIcon className="w-8 h-8 text-accent" />
-          <h1 className="text-3xl font-bold">Cleaning Calendar</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="w-8 h-8 text-accent" />
+            <h1 className="text-3xl font-bold">Calendar</h1>
+          </div>
+          <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={() => openEventDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{editingEvent ? 'Edit Event' : 'Create New Event'}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Event title"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="event_type">Type</Label>
+                  <Select value={eventForm.event_type} onValueChange={(value) => setEventForm(prev => ({ ...prev, event_type: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gig">🎸 Gig</SelectItem>
+                      <SelectItem value="show">🎭 Show</SelectItem>
+                      <SelectItem value="jam">🎵 Jam Session</SelectItem>
+                      <SelectItem value="rehearsal">🎶 Rehearsal</SelectItem>
+                      <SelectItem value="recording">🎙️ Recording</SelectItem>
+                      <SelectItem value="other">📅 Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="start_date">Start Date & Time</Label>
+                  <Input
+                    id="start_date"
+                    type="datetime-local"
+                    value={eventForm.start_date}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, start_date: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="end_date">End Date & Time (Optional)</Label>
+                  <Input
+                    id="end_date"
+                    type="datetime-local"
+                    value={eventForm.end_date}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, end_date: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={eventForm.location}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Venue or location"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={eventForm.description}
+                    onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Additional details"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    onClick={handleEventSubmit}
+                    disabled={!eventForm.title}
+                    className="flex-1"
+                  >
+                    {editingEvent ? 'Update Event' : 'Create Event'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowEventDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -203,10 +454,12 @@ const Calendar = () => {
                 
                 <div className="grid grid-cols-7 gap-1">
                   {getDaysInMonth().map(day => {
-                    const dayEvents = getEventsForDate(day);
-                    const hasEvents = dayEvents.length > 0;
-                    const hasOverdue = dayEvents.some(e => e.isOverdue);
-                    const hasDueToday = dayEvents.some(e => e.isDueToday);
+                    const dayData = getEventsForDate(day);
+                    const hasCleaningEvents = dayData.cleaningEvents.length > 0;
+                    const hasRegularEvents = dayData.events.length > 0;
+                    const hasAnyEvents = hasCleaningEvents || hasRegularEvents;
+                    const hasOverdue = dayData.cleaningEvents.some(e => e.isOverdue);
+                    const hasDueToday = dayData.cleaningEvents.some(e => e.isDueToday);
                     
                     return (
                       <button
@@ -217,18 +470,19 @@ const Calendar = () => {
                           ${isSameMonth(day, currentDate) ? 'text-foreground' : 'text-muted-foreground'}
                           ${isToday(day) ? 'bg-accent text-accent-foreground font-bold' : ''}
                           ${selectedDate && isSameDay(day, selectedDate) ? 'ring-2 ring-primary' : ''}
-                          ${hasEvents && !isToday(day) ? 'bg-primary/10' : ''}
+                          ${hasAnyEvents && !isToday(day) ? 'bg-primary/10' : ''}
                           ${hasOverdue ? 'bg-destructive/20 border-destructive' : ''}
                           ${hasDueToday ? 'bg-yellow-500/20 border-yellow-500' : ''}
                           hover:bg-muted
                         `}
                       >
                         <div className="font-medium">{format(day, 'd')}</div>
-                        {hasEvents && (
+                        {hasAnyEvents && (
                           <div className="flex flex-wrap gap-0.5 mt-1">
-                            {dayEvents.slice(0, 3).map((event, idx) => (
+                            {/* Cleaning events */}
+                            {dayData.cleaningEvents.slice(0, 2).map((event, idx) => (
                               <div 
-                                key={idx} 
+                                key={`cleaning-${idx}`} 
                                 className={`
                                   w-1.5 h-1.5 rounded-full
                                   ${event.isOverdue ? 'bg-destructive' : 
@@ -236,8 +490,15 @@ const Calendar = () => {
                                 `}
                               />
                             ))}
-                            {dayEvents.length > 3 && (
-                              <div className="text-xs">+{dayEvents.length - 3}</div>
+                            {/* Regular events */}
+                            {dayData.events.slice(0, 2).map((event, idx) => (
+                              <div 
+                                key={`event-${idx}`} 
+                                className="w-1.5 h-1.5 rounded-full bg-accent"
+                              />
+                            ))}
+                            {(dayData.cleaningEvents.length + dayData.events.length) > 2 && (
+                              <div className="text-xs">+{(dayData.cleaningEvents.length + dayData.events.length) - 2}</div>
                             )}
                           </div>
                         )}
@@ -260,9 +521,75 @@ const Calendar = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {getEventsForDate(selectedDate).length > 0 ? (
-                    <div className="space-y-3">
-                      {getEventsForDate(selectedDate).map((event) => (
+                  {(() => {
+                    const dayData = getEventsForDate(selectedDate);
+                    const hasAnyEvents = dayData.cleaningEvents.length > 0 || dayData.events.length > 0;
+                    
+                    return hasAnyEvents ? (
+                      <div className="space-y-4">
+                        {/* Regular Events */}
+                        {dayData.events.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm text-muted-foreground">Events</h4>
+                            {dayData.events.map((event) => (
+                              <div
+                                key={event.id}
+                                className="p-3 rounded-lg border bg-accent/10 border-accent"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-2 flex-1">
+                                    <span className="text-lg">
+                                      {eventTypeIcons[event.event_type as keyof typeof eventTypeIcons] || "📅"}
+                                    </span>
+                                    <div className="flex-1">
+                                      <div className="font-medium">{event.title}</div>
+                                      <div className="text-sm text-muted-foreground capitalize">
+                                        {event.event_type}
+                                      </div>
+                                      {event.location && (
+                                        <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                          <MapPin className="w-3 h-3" />
+                                          {event.location}
+                                        </div>
+                                      )}
+                                      {event.description && (
+                                        <div className="text-sm text-muted-foreground mt-1">
+                                          {event.description}
+                                        </div>
+                                      )}
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        {format(new Date(event.start_date), 'HH:mm')}
+                                        {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openEventDialog(event)}
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteEvent(event.id)}
+                                    >
+                                      <Trash className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Cleaning Events */}
+                        {dayData.cleaningEvents.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm text-muted-foreground">Equipment Cleaning</h4>
+                            {dayData.cleaningEvents.map((event) => (
                         <div
                           key={event.id}
                           className={`
@@ -293,14 +620,27 @@ const Calendar = () => {
                               )}
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">
-                      No cleaning scheduled for this date
-                    </p>
-                  )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground mb-3">
+                          No events scheduled for this date
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openEventDialog(undefined, selectedDate)}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Event
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             )}
