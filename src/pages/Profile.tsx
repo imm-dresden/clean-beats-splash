@@ -1,4 +1,4 @@
-import { User, Settings, Music, Calendar, Target } from "lucide-react";
+import { User, Settings, Music, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -173,9 +173,9 @@ const Profile = () => {
                         )}
                         {item.last_cleaned_at && (
                           <div className="flex items-center gap-1">
-                            <Target className="w-3 h-3 text-green-500" />
+                            <span className="text-sm">🔥</span>
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(item.last_cleaned_at), 'MMM dd')}
+                              Last: {format(new Date(item.last_cleaned_at), 'MMM dd')}
                             </span>
                           </div>
                         )}

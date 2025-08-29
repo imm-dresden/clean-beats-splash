@@ -596,7 +596,7 @@ const Equipment = () => {
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          <Target className="w-4 h-4 text-accent" />
+                          <span className="text-sm">🔥</span>
                           <span className="text-sm">Cleaning streak: {streak}</span>
                         </div>
                       </div>
