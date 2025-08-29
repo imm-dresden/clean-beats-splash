@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Camera, Bell, Calendar, Clock, Filter, SortAsc, CheckCircle, Target, Music } from "lucide-react";
+import { Plus, Edit, Trash2, Camera, Bell, Calendar, Clock, Filter, SortAsc, CheckCircle, Target, Music, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,9 @@ const Equipment = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCleaningDialogOpen, setIsCleaningDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
@@ -460,6 +462,11 @@ const Equipment = () => {
     setIsCleaningDialogOpen(true);
   };
 
+  const openDetailDialog = (item: Equipment) => {
+    setDetailEquipment(item);
+    setIsDetailDialogOpen(true);
+  };
+
   const getFilteredAndSortedEquipment = () => {
     let filtered = equipment;
     
@@ -761,7 +768,7 @@ const Equipment = () => {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3" onClick={() => openDetailDialog(item)}>
                       <div className="space-y-2">
                         {item.last_cleaned_at && (
                           <div className="text-sm">
@@ -794,7 +801,10 @@ const Equipment = () => {
                         <Button
                           size="sm"
                           className="flex-1"
-                          onClick={() => openCleaningDialog(item)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCleaningDialog(item);
+                          }}
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
                           Log Cleaning
@@ -1088,6 +1098,185 @@ const Equipment = () => {
                 </form>
               </div>
             </DialogContent>
+        </Dialog>
+
+        {/* Equipment Detail Dialog */}
+        <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-3">
+                {detailEquipment?.photo_url ? (
+                  <img 
+                    src={detailEquipment.photo_url} 
+                    alt={detailEquipment.name}
+                    className="w-12 h-12 object-cover rounded-lg border"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center text-xl">
+                    {detailEquipment && equipmentIcons[detailEquipment.type as keyof typeof equipmentIcons] || detailEquipment?.icon || "🎵"}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold">{detailEquipment?.name}</h2>
+                  <p className="text-sm text-muted-foreground capitalize">{detailEquipment?.type}</p>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-6 p-1">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Basic Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Equipment Type</Label>
+                      <p className="capitalize">{detailEquipment?.type}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Cleaning Frequency</Label>
+                      <p>Every {detailEquipment?.cleaning_frequency_days} days</p>
+                    </div>
+                  </div>
+                  
+                  {detailEquipment?.description && (
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Cleaning Requirements</Label>
+                      <p className="text-sm mt-1">{detailEquipment.description}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cleaning Schedule */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Cleaning Schedule</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {detailEquipment?.last_cleaned_at && (
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <Label className="text-sm font-medium text-muted-foreground">Last Cleaned</Label>
+                        <p className="text-lg font-medium">{format(new Date(detailEquipment.last_cleaned_at), 'EEEE, MMMM d, yyyy')}</p>
+                        <p className="text-sm text-muted-foreground">{format(new Date(detailEquipment.last_cleaned_at), 'h:mm a')}</p>
+                      </div>
+                    )}
+                    
+                    {detailEquipment?.next_cleaning_due && (
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <Label className="text-sm font-medium text-muted-foreground">Next Cleaning Due</Label>
+                        <p className="text-lg font-medium">{format(new Date(detailEquipment.next_cleaning_due), 'EEEE, MMMM d, yyyy')}</p>
+                        {(() => {
+                          const daysUntilDue = getDaysUntilDue(detailEquipment.next_cleaning_due);
+                          return daysUntilDue !== null && (
+                            <p className={`text-sm ${daysUntilDue < 0 ? 'text-red-500' : daysUntilDue === 0 ? 'text-yellow-500' : 'text-green-500'}`}>
+                              {daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 
+                               daysUntilDue === 0 ? 'Due today' : 
+                               `${Math.abs(daysUntilDue)} days overdue`}
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cleaning Statistics */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Statistics</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-primary">🔥</div>
+                      <p className="text-lg font-medium">{detailEquipment ? getCleaningStreak(detailEquipment.id) : 0}</p>
+                      <p className="text-sm text-muted-foreground">Cleaning Streak</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-primary">📅</div>
+                      <p className="text-lg font-medium">{detailEquipment?.cleaning_frequency_days || 0}</p>
+                      <p className="text-sm text-muted-foreground">Day Frequency</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Settings */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Settings</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4" />
+                        <span>Notifications</span>
+                      </div>
+                      <Badge variant={detailEquipment?.notifications_enabled ? "default" : "secondary"}>
+                        {detailEquipment?.notifications_enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      <span>Show on Profile</span>
+                    </div>
+                    <Badge variant={detailEquipment?.show_on_profile ? "default" : "secondary"}>
+                      {detailEquipment?.show_on_profile ? "Visible" : "Hidden"}
+                    </Badge>
+                  </div>
+                  </div>
+                </div>
+
+                {/* Recent Cleaning History */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Recent Cleaning History</h3>
+                  <div className="space-y-2">
+                    {cleaningLogs
+                      .filter(log => log.equipment_id === detailEquipment?.id)
+                      .slice(0, 5)
+                      .map((log) => (
+                        <div key={log.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-medium">{format(new Date(log.cleaned_at), 'MMM dd, yyyy')}</p>
+                            {log.notes && <p className="text-sm text-muted-foreground">{log.notes}</p>}
+                          </div>
+                          <CheckCircle className="w-5 h-5 text-green-500" />
+                        </div>
+                      ))}
+                    {cleaningLogs.filter(log => log.equipment_id === detailEquipment?.id).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No cleaning history yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 pt-4 border-t">
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    if (detailEquipment) {
+                      setIsDetailDialogOpen(false);
+                      openEditDialog(detailEquipment);
+                    }
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Equipment
+                </Button>
+                <Button 
+                  className="flex-1"
+                  onClick={() => {
+                    if (detailEquipment) {
+                      setIsDetailDialogOpen(false);
+                      openCleaningDialog(detailEquipment);
+                    }
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Log Cleaning
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
         </Dialog>
       </div>
     </div>

@@ -1,7 +1,9 @@
-import { User, Settings, Music, Calendar } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +40,8 @@ const Profile = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -100,6 +104,11 @@ const Profile = () => {
     return userProfile?.display_name || userProfile?.username || "Music Enthusiast";
   };
 
+  const openDetailDialog = (item: Equipment) => {
+    setDetailEquipment(item);
+    setIsDetailDialogOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground gradient-hero">
       {/* Header */}
@@ -138,7 +147,11 @@ const Profile = () => {
                 const daysUntilDue = getDaysUntilDue(item.next_cleaning_due);
                 
                 return (
-                  <Card key={item.id} className="bg-background/30 border-border/30 hover:bg-background/50 transition-colors">
+                  <Card 
+                    key={item.id} 
+                    className="bg-background/30 border-border/30 hover:bg-background/50 transition-colors cursor-pointer"
+                    onClick={() => openDetailDialog(item)}
+                  >
                     <CardContent className="p-3">
                       <div className="flex flex-col items-center text-center space-y-2">
                         {item.photo_url ? (
@@ -242,6 +255,103 @@ const Profile = () => {
           </div>
         </div>
       )}
+
+      {/* Equipment Detail Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-3">
+              {detailEquipment?.photo_url ? (
+                <img 
+                  src={detailEquipment.photo_url} 
+                  alt={detailEquipment.name}
+                  className="w-12 h-12 object-cover rounded-lg border"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center text-xl">
+                  {detailEquipment && equipmentIcons[detailEquipment.type as keyof typeof equipmentIcons] || detailEquipment?.icon || "🎵"}
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold">{detailEquipment?.name}</h2>
+                <p className="text-sm text-muted-foreground capitalize">{detailEquipment?.type}</p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-6 p-1">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Equipment Type</Label>
+                    <p className="capitalize">{detailEquipment?.type}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Cleaning Frequency</Label>
+                    <p>Every {detailEquipment?.cleaning_frequency_days} days</p>
+                  </div>
+                </div>
+                
+                {detailEquipment?.description && (
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground">Cleaning Requirements</Label>
+                    <p className="text-sm mt-1">{detailEquipment.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Cleaning Schedule */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Cleaning Schedule</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {detailEquipment?.last_cleaned_at && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-medium text-muted-foreground">Last Cleaned</Label>
+                      <p className="text-lg font-medium">{format(new Date(detailEquipment.last_cleaned_at), 'EEEE, MMMM d, yyyy')}</p>
+                      <p className="text-sm text-muted-foreground">{format(new Date(detailEquipment.last_cleaned_at), 'h:mm a')}</p>
+                    </div>
+                  )}
+                  
+                  {detailEquipment?.next_cleaning_due && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-medium text-muted-foreground">Next Cleaning Due</Label>
+                      <p className="text-lg font-medium">{format(new Date(detailEquipment.next_cleaning_due), 'EEEE, MMMM d, yyyy')}</p>
+                      {(() => {
+                        const daysUntilDue = getDaysUntilDue(detailEquipment.next_cleaning_due);
+                        return daysUntilDue !== null && (
+                          <p className={`text-sm ${daysUntilDue < 0 ? 'text-red-500' : daysUntilDue === 0 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 
+                             daysUntilDue === 0 ? 'Due today' : 
+                             `${Math.abs(daysUntilDue)} days overdue`}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Visibility</h3>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span>Shown on Profile</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">This equipment is visible on your profile showcase</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
