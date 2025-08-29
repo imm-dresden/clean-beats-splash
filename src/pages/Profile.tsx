@@ -1,4 +1,4 @@
-import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Share, Camera } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Camera } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -248,32 +248,6 @@ const Profile = () => {
     }
   };
 
-  const handleShareProfile = async () => {
-    try {
-      const profileUrl = `${window.location.origin}/profile?user=${userProfile?.username}`;
-      
-      if (navigator.share) {
-        await navigator.share({
-          title: `${getUserDisplayName()}'s Profile`,
-          text: `Check out ${getUserDisplayName()}'s music profile!`,
-          url: profileUrl
-        });
-      } else {
-        await navigator.clipboard.writeText(profileUrl);
-        toast({
-          title: "Success",
-          description: "Profile link copied to clipboard",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to share profile",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = event.target.files?.[0];
@@ -346,14 +320,9 @@ const Profile = () => {
       <div className="px-6 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleShareProfile}>
-              <Share className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
-              <Settings className="w-6 h-6 text-accent" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+            <Settings className="w-6 h-6 text-accent" />
+          </Button>
         </div>
       </div>
 
