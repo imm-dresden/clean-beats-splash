@@ -11,6 +11,7 @@ import Equipment from "./pages/Equipment";
 import Calendar from "./pages/Calendar";
 import Community from "./pages/Community";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import BottomNavigation from "./components/BottomNavigation";
 
@@ -19,8 +20,8 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   
-  // Hide navigation on splash screen and auth page
-  const hideNavigation = location.pathname === '/' || location.pathname === '/auth';
+  // Hide navigation on splash screen, auth page, and settings page
+  const hideNavigation = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/settings';
 
   return (
     <div className={hideNavigation ? '' : 'pb-16'}>
@@ -32,6 +33,7 @@ const AppContent = () => {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/community" element={<Community />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

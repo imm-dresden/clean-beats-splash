@@ -1,5 +1,6 @@
 import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus, Share } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ const equipmentIcons = {
 };
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -298,7 +300,9 @@ const Profile = () => {
             <Button variant="ghost" size="sm" onClick={handleShareProfile}>
               <Share className="w-5 h-5" />
             </Button>
-            <Settings className="w-6 h-6 text-accent" />
+            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+              <Settings className="w-6 h-6 text-accent" />
+            </Button>
           </div>
         </div>
       </div>
