@@ -15,6 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { notificationService } from "@/services/notificationService";
 
+// Debug: Verify User icon is imported
+console.log("User icon imported:", User);
+
 interface Equipment {
   id: string;
   name: string;
