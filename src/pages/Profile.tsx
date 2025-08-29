@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ThemeToggle from "@/components/ThemeToggle";
 import CreatePost from "@/components/CreatePost";
-import PostCard from "@/components/PostCard";
+import PostGridItem from "@/components/PostGridItem";
+import PostModal from "@/components/PostModal";
 import FollowButton from "@/components/FollowButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +86,9 @@ const Profile = () => {
   const [bioText, setBioText] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -185,6 +189,19 @@ const Profile = () => {
       );
 
       setPosts(postsWithLikes);
+      
+      // Fetch comments count for each post
+      const commentsCounts: Record<string, number> = {};
+      await Promise.all(
+        postsWithLikes.map(async (post) => {
+          const { count } = await supabase
+            .from('post_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+          commentsCounts[post.id] = count || 0;
+        })
+      );
+      setCommentsCount(commentsCounts);
     } catch (error) {
       toast({
         title: "Error",
@@ -294,6 +311,16 @@ const Profile = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handlePostClick = (post: Post) => {
+    setSelectedPost(post);
+    setIsPostModalOpen(true);
+  };
+
+  const handlePostModalClose = () => {
+    setIsPostModalOpen(false);
+    setSelectedPost(null);
   };
 
   const getDaysUntilDue = (dueDateString?: string) => {
@@ -434,24 +461,24 @@ const Profile = () => {
           <TabsContent value="posts" className="mt-6">
             <CreatePost onPostCreated={fetchPosts} />
             
-            <div className="space-y-4">
-              {posts.length > 0 ? (
-                posts.map((post) => (
-                  <PostCard
+            {posts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-1 mt-4">
+                {posts.map((post) => (
+                  <PostGridItem
                     key={post.id}
                     post={post}
-                    isOwner={post.user_id === currentUser?.id}
-                    onPostUpdate={fetchPosts}
+                    commentsCount={commentsCount[post.id] || 0}
+                    onClick={() => handlePostClick(post)}
                   />
-                ))
-              ) : (
-                <Card className="glass-card">
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground">No posts yet. Share your first post!</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <Card className="glass-card mt-4">
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">No posts yet. Share your first post!</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Equipment Tab */}
@@ -666,6 +693,15 @@ const Profile = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Post Modal */}
+      <PostModal
+        post={selectedPost}
+        isOpen={isPostModalOpen}
+        onClose={handlePostModalClose}
+        isOwner={selectedPost?.user_id === currentUser?.id}
+        onPostUpdate={fetchPosts}
+      />
     </div>
   );
 };
