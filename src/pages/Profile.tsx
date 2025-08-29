@@ -283,8 +283,8 @@ const Profile = () => {
 
       // Upload to Supabase storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${currentUser.id}/${Math.random()}.${fileExt}`;
+      const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -590,20 +590,6 @@ const Profile = () => {
             )}
           </TabsContent>
 
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="mt-6">
-            <div className="space-y-4">
-              <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-foreground text-lg font-semibold">Appearance</h3>
-                    <p className="text-muted-foreground text-sm">Toggle between light and dark theme</p>
-                  </div>
-                  <ThemeToggle />
-                </div>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
 
