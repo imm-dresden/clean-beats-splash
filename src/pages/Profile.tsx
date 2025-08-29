@@ -1,10 +1,15 @@
-import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit } from "lucide-react";
+import { User, Settings, Music, Calendar, Bell, CheckCircle, Edit, Heart, Users, Grid, UserPlus, UserMinus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ThemeToggle from "@/components/ThemeToggle";
+import CreatePost from "@/components/CreatePost";
+import PostCard from "@/components/PostCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -19,6 +24,34 @@ interface Equipment {
   last_cleaned_at?: string;
   next_cleaning_due?: string;
   cleaning_frequency_days: number;
+}
+
+interface UserProfile {
+  id: string;
+  user_id: string;
+  display_name?: string;
+  username: string;
+  bio?: string;
+  email?: string;
+}
+
+interface Post {
+  id: string;
+  content: string;
+  image_url?: string;
+  created_at: string;
+  user_id: string;
+  author?: {
+    display_name?: string;
+    username: string;
+  };
+  likes_count?: number;
+  is_liked?: boolean;
+}
+
+interface FollowStats {
+  followers: number;
+  following: number;
 }
 
 const equipmentIcons = {
@@ -38,15 +71,22 @@ const equipmentIcons = {
 
 const Profile = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [followStats, setFollowStats] = useState<FollowStats>({ followers: 0, following: 0 });
   const [loading, setLoading] = useState(true);
   const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [bioText, setBioText] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchUserProfile();
     fetchProfileEquipment();
+    fetchPosts();
+    fetchFollowStats();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -54,13 +94,16 @@ const Profile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      setCurrentUser(user);
+
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, username')
+        .select('*')
         .eq('user_id', user.id)
         .single();
       
       setUserProfile(profile);
+      setBioText(profile?.bio || "");
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
@@ -88,6 +131,112 @@ const Profile = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch posts with author info and like counts
+      const { data: postsData, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (display_name, username),
+          post_likes (count)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data to include likes count and check if current user liked
+      const postsWithLikes = await Promise.all(
+        (postsData || []).map(async (post) => {
+          const { count: likesCount } = await supabase
+            .from('post_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+
+          const { data: userLike } = await supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', post.id)
+            .eq('user_id', user.id)
+            .single();
+
+          return {
+            ...post,
+            author: post.profiles,
+            likes_count: likesCount || 0,
+            is_liked: !!userLike
+          };
+        })
+      );
+
+      setPosts(postsWithLikes);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch posts",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchFollowStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get followers count
+      const { count: followersCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', user.id);
+
+      // Get following count
+      const { count: followingCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', user.id);
+
+      setFollowStats({
+        followers: followersCount || 0,
+        following: followingCount || 0
+      });
+    } catch (error) {
+      console.error('Error fetching follow stats:', error);
+    }
+  };
+
+  const updateBio = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio: bioText })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Bio updated successfully",
+      });
+
+      setIsEditingBio(false);
+      fetchUserProfile();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update bio",
+        variant: "destructive",
+      });
     }
   };
 
@@ -122,130 +271,223 @@ const Profile = () => {
       {/* Profile Info */}
       <div className="px-6 mb-6">
         <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center">
-              <User className="w-8 h-8 text-accent" />
+          <div className="flex items-start space-x-4 mb-4">
+            <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center">
+              <User className="w-10 h-10 text-accent" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-foreground text-xl font-bold">{getUserDisplayName()}</h2>
-              <p className="text-accent opacity-80">Clean Beats Lover</p>
+              <p className="text-accent opacity-80 mb-2">@{userProfile?.username}</p>
+              
+              {/* Follow Stats */}
+              <div className="flex gap-6 mb-3">
+                <div className="text-center">
+                  <div className="font-bold text-lg">{posts.length}</div>
+                  <div className="text-sm text-muted-foreground">Posts</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-lg">{followStats.followers}</div>
+                  <div className="text-sm text-muted-foreground">Followers</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-bold text-lg">{followStats.following}</div>
+                  <div className="text-sm text-muted-foreground">Following</div>
+                </div>
+              </div>
+
+              {/* Bio */}
+              <div className="space-y-2">
+                {isEditingBio ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={bioText}
+                      onChange={(e) => setBioText(e.target.value)}
+                      placeholder="Tell us about yourself..."
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={updateBio}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={() => setIsEditingBio(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    <p className="text-sm text-muted-foreground flex-1">
+                      {userProfile?.bio || "Music lover | Clean beats enthusiast"}
+                    </p>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditingBio(true)}>
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Equipment Showcase */}
-      {equipment.length > 0 && (
-        <div className="px-6 mb-6">
-          <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
-            <div className="flex items-center gap-2 mb-4">
-              <Music className="w-5 h-5 text-accent" />
-              <h3 className="text-foreground text-lg font-semibold">My Equipment</h3>
+      {/* Content Tabs */}
+      <div className="px-6">
+        <Tabs defaultValue="posts" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="posts" className="flex items-center gap-2">
+              <Grid className="w-4 h-4" />
+              Posts
+            </TabsTrigger>
+            <TabsTrigger value="equipment" className="flex items-center gap-2">
+              <Music className="w-4 h-4" />
+              Equipment
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Posts Tab */}
+          <TabsContent value="posts" className="mt-6">
+            <CreatePost onPostCreated={fetchPosts} />
+            
+            <div className="space-y-4">
+              {posts.length > 0 ? (
+                posts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    isOwner={post.user_id === currentUser?.id}
+                    onPostUpdate={fetchPosts}
+                  />
+                ))
+              ) : (
+                <Card className="glass-card">
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No posts yet. Share your first post!</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {equipment.map((item) => {
-                const daysUntilDue = getDaysUntilDue(item.next_cleaning_due);
-                
-                return (
-                  <Card 
-                    key={item.id} 
-                    className="bg-background/30 border-border/30 hover:bg-background/50 transition-colors cursor-pointer"
-                    onClick={() => openDetailDialog(item)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex flex-col items-center text-center space-y-2">
-                        {item.photo_url ? (
-                          <img 
-                            src={item.photo_url} 
-                            alt={item.name}
-                            className="w-12 h-12 rounded-lg object-cover border border-border/50"
-                          />
-                        ) : (
-                          <span className="text-2xl">{equipmentIcons[item.icon as keyof typeof equipmentIcons] || equipmentIcons.other}</span>
-                        )}
-                        <div className="space-y-1">
-                          <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
-                          <p className="text-xs text-muted-foreground capitalize">{item.type}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                          )}
-                        </div>
-                        {item.next_cleaning_due && (
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${daysUntilDue !== null && daysUntilDue < 0 ? 'bg-red-500/20 text-red-400' : 
-                              daysUntilDue === 0 ? 'bg-yellow-500/20 text-yellow-400' : ''}`}
-                          >
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {daysUntilDue !== null ? (
-                              daysUntilDue > 0 ? `${daysUntilDue}d` : 
-                              daysUntilDue === 0 ? 'Today' : 
-                              `${Math.abs(daysUntilDue)}d overdue`
-                            ) : 'Not scheduled'}
-                          </Badge>
-                        )}
-                        {item.last_cleaned_at && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm">🔥</span>
-                            <span className="text-xs text-muted-foreground">
-                              Last: {format(new Date(item.last_cleaned_at), 'MMM dd')}
-                            </span>
-                          </div>
-                        )}
+          </TabsContent>
+
+          {/* Equipment Tab */}
+          <TabsContent value="equipment" className="mt-6">
+            {equipment.length > 0 ? (
+              <div className="space-y-6">
+                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Music className="w-5 h-5 text-accent" />
+                    <h3 className="text-foreground text-lg font-semibold">My Equipment</h3>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {equipment.map((item) => {
+                      const daysUntilDue = getDaysUntilDue(item.next_cleaning_due);
+                      
+                      return (
+                        <Card 
+                          key={item.id} 
+                          className="bg-background/30 border-border/30 hover:bg-background/50 transition-colors cursor-pointer"
+                          onClick={() => openDetailDialog(item)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex flex-col items-center text-center space-y-2">
+                              {item.photo_url ? (
+                                <img 
+                                  src={item.photo_url} 
+                                  alt={item.name}
+                                  className="w-12 h-12 rounded-lg object-cover border border-border/50"
+                                />
+                              ) : (
+                                <span className="text-2xl">{equipmentIcons[item.icon as keyof typeof equipmentIcons] || equipmentIcons.other}</span>
+                              )}
+                              <div className="space-y-1">
+                                <h4 className="font-medium text-sm leading-tight">{item.name}</h4>
+                                <p className="text-xs text-muted-foreground capitalize">{item.type}</p>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                                )}
+                              </div>
+                              {item.next_cleaning_due && (
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`text-xs ${daysUntilDue !== null && daysUntilDue < 0 ? 'bg-red-500/20 text-red-400' : 
+                                    daysUntilDue === 0 ? 'bg-yellow-500/20 text-yellow-400' : ''}`}
+                                >
+                                  <Calendar className="w-3 h-3 mr-1" />
+                                  {daysUntilDue !== null ? (
+                                    daysUntilDue > 0 ? `${daysUntilDue}d` : 
+                                    daysUntilDue === 0 ? 'Today' : 
+                                    `${Math.abs(daysUntilDue)}d overdue`
+                                  ) : 'Not scheduled'}
+                                </Badge>
+                              )}
+                              {item.last_cleaned_at && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm">🔥</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Last: {format(new Date(item.last_cleaned_at), 'MMM dd')}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Equipment Stats */}
+                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
+                  <h3 className="text-foreground text-lg font-semibold mb-4">Equipment Stats</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-accent">{equipment.length}</div>
+                      <div className="text-sm text-muted-foreground">Total Items</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-500">
+                        {equipment.filter(item => {
+                          const days = getDaysUntilDue(item.next_cleaning_due);
+                          return days !== null && days >= 0;
+                        }).length}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Equipment Stats */}
-      {equipment.length > 0 && (
-        <div className="px-6 mb-6">
-          <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
-            <h3 className="text-foreground text-lg font-semibold mb-4">Equipment Stats</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-accent">{equipment.length}</div>
-                <div className="text-sm text-muted-foreground">Total Items</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">
-                  {equipment.filter(item => {
-                    const days = getDaysUntilDue(item.next_cleaning_due);
-                    return days !== null && days >= 0;
-                  }).length}
+                      <div className="text-sm text-muted-foreground">Up to Date</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-500">
+                        {equipment.filter(item => {
+                          const days = getDaysUntilDue(item.next_cleaning_due);
+                          return days !== null && days < 0;
+                        }).length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Overdue</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">Up to Date</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">
-                  {equipment.filter(item => {
-                    const days = getDaysUntilDue(item.next_cleaning_due);
-                    return days !== null && days < 0;
-                  }).length}
-                </div>
-                <div className="text-sm text-muted-foreground">Overdue</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            ) : (
+              <Card className="glass-card">
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">No equipment set to show on profile yet.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
 
-      {/* Theme Settings */}
-      <div className="px-6 mb-6">
-        <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-foreground text-lg font-semibold">Appearance</h3>
-              <p className="text-muted-foreground text-sm">Toggle between light and dark theme</p>
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="mt-6">
+            <div className="space-y-4">
+              <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-foreground text-lg font-semibold">Appearance</h3>
+                    <p className="text-muted-foreground text-sm">Toggle between light and dark theme</p>
+                  </div>
+                  <ThemeToggle />
+                </div>
+              </div>
             </div>
-            <ThemeToggle />
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {loading && (
