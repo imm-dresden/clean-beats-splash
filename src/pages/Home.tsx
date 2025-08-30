@@ -40,6 +40,27 @@ const Home = () => {
     getCurrentUser();
     fetchUnreadNotifications();
     fetchDashboardData();
+
+    // Set up real-time subscription for notifications
+    const channel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications'
+        },
+        () => {
+          // Refetch unread count when notifications are updated
+          fetchUnreadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const getCurrentUser = async () => {

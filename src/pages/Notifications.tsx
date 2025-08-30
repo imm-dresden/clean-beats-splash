@@ -223,11 +223,16 @@ const Notifications = () => {
             {notifications.map((notification) => (
               <Card 
                 key={notification.id} 
-                className={`glass-card cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                className={`glass-card cursor-pointer transition-all duration-200 hover:shadow-lg relative ${
                   notification.read ? 'opacity-70' : 'border-accent/50'
                 }`}
                 onClick={() => handleNotificationClick(notification)}
               >
+                {/* Blue line indicator for unread notifications */}
+                {!notification.read && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-lg"></div>
+                )}
+                
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
@@ -242,7 +247,9 @@ const Notifications = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-foreground text-sm">
+                          <h4 className={`font-semibold text-sm ${
+                            notification.read ? 'text-muted-foreground' : 'text-foreground'
+                          }`}>
                             {notification.title}
                           </h4>
                           <p className="text-muted-foreground text-sm mt-1">
@@ -258,7 +265,7 @@ const Notifications = () => {
                         {/* Read indicator and timestamp */}
                         <div className="flex flex-col items-end gap-2 ml-2">
                           {!notification.read && (
-                            <div className="w-2 h-2 bg-accent rounded-full"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                           )}
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
