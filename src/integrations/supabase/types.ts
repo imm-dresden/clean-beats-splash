@@ -471,6 +471,13 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_user_global_rank: {
+        Args: { p_user_id: string }
+        Returns: {
+          rank_position: number
+          total_users: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

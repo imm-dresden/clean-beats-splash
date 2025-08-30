@@ -93,7 +93,7 @@ const Home = () => {
         setBestEquipment(equipment[0]);
       }
 
-      // Get top streaks from following/followers
+      // Get top streaks from following/followers (includes user)
       const { data: streaks } = await supabase
         .rpc('get_following_top_streaks', { 
           p_user_id: user.id, 
@@ -102,20 +102,15 @@ const Home = () => {
 
       setTopStreaks(streaks || []);
 
-      // Calculate user's rank
-      const { data: allUsers } = await supabase
-        .from('equipment')
-        .select('user_id, best_streak')
-        .order('best_streak', { ascending: false });
+      // Get user's global rank
+      const { data: rankData } = await supabase
+        .rpc('get_user_global_rank', { 
+          p_user_id: user.id 
+        });
 
-      if (allUsers) {
-        const userBestStreak = bestEquipment?.best_streak || 0;
-        const betterUsers = allUsers.filter(u => u.best_streak > userBestStreak);
-        setUserRank(betterUsers.length + 1);
-        
-        // Get unique users count
-        const uniqueUsers = new Set(allUsers.map(u => u.user_id));
-        setTotalUsers(uniqueUsers.size);
+      if (rankData && rankData.length > 0) {
+        setUserRank(rankData[0].rank_position);
+        setTotalUsers(rankData[0].total_users);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
