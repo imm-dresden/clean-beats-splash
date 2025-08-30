@@ -142,7 +142,13 @@ const Settings = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/home');
+              }
+            }}
             className="p-2"
           >
             <ArrowLeft className="w-5 h-5" />

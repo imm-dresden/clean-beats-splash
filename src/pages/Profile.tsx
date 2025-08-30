@@ -362,7 +362,17 @@ const Profile = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {userId && (
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate('/home');
+                  }
+                }}
+              >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             )}
