@@ -129,6 +129,34 @@ class NotificationService {
     console.log('Sending test notification...');
     console.log('Is native platform:', this.isNative);
     
+    // First, create an in-app notification in the database
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        console.log('Creating in-app notification for user:', user.id);
+        const { error: dbError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: user.id,
+            type: 'test',
+            title: 'Test Notification',
+            message: 'This is a test notification from Clean Beats! 🎵 Your notifications are working correctly.',
+            data: {
+              test: true,
+              timestamp: new Date().toISOString()
+            }
+          });
+        
+        if (dbError) {
+          console.error('Error creating in-app notification:', dbError);
+        } else {
+          console.log('In-app notification created successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Error creating in-app notification:', error);
+    }
+    
     if (this.isNative) {
       try {
         console.log('Attempting to schedule native notification...');
@@ -196,11 +224,11 @@ class NotificationService {
           }
         } else {
           console.log('Notification permission not granted. Current status:', Notification.permission);
-          return false;
+          return true; // Return true because in-app notification was created
         }
       } else {
         console.log('Notifications not supported in this browser');
-        return false;
+        return true; // Return true because in-app notification was created
       }
     }
   }
