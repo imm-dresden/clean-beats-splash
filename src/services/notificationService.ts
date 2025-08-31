@@ -37,20 +37,51 @@ class NotificationService {
     console.log(`Equipment ${equipmentId} marked as cleaned from notification`);
   }
 
-  async requestPermissions() {
+  async requestPermissions(): Promise<boolean> {
+    console.log('Requesting notification permissions...');
+    
     if (this.isNative) {
-      // Request both local and push notification permissions
-      const localPermission = await LocalNotifications.requestPermissions();
-      const pushPermission = await PushNotifications.requestPermissions();
-      return localPermission.display === 'granted' && pushPermission.receive === 'granted';
+      try {
+        // Request both local and push notification permissions
+        const localPermission = await LocalNotifications.requestPermissions();
+        const pushPermission = await PushNotifications.requestPermissions();
+        const granted = localPermission.display === 'granted' && pushPermission.receive === 'granted';
+        console.log('Native notification permissions granted:', granted);
+        return granted;
+      } catch (error) {
+        console.error('Error requesting native permissions:', error);
+        return false;
+      }
     } else {
       // Web notifications
       if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        return permission === 'granted';
+        try {
+          console.log('Current notification permission:', Notification.permission);
+          
+          if (Notification.permission === 'granted') {
+            console.log('Notification permissions already granted');
+            return true;
+          }
+          
+          if (Notification.permission === 'denied') {
+            console.log('Notification permissions denied by user');
+            return false;
+          }
+          
+          // Request permission
+          console.log('Requesting notification permission...');
+          const permission = await Notification.requestPermission();
+          console.log('Notification permission result:', permission);
+          return permission === 'granted';
+        } catch (error) {
+          console.error('Error requesting web notification permissions:', error);
+          return false;
+        }
+      } else {
+        console.log('Notifications not supported in this browser');
+        return false;
       }
     }
-    return false;
   }
 
   async initializePushNotifications() {

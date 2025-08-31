@@ -50,9 +50,20 @@ const AppContent = () => {
 const App = () => {
   useEffect(() => {
     const initializeNotifications = async () => {
+      console.log('Initializing notifications...');
+      
+      // Initialize service worker first
       await notificationService.initializeServiceWorker();
-      await notificationService.requestPermissions();
-      await notificationService.initializePushNotifications();
+      
+      // Wait a bit for service worker to be ready, then request permissions
+      setTimeout(async () => {
+        const permissionGranted = await notificationService.requestPermissions();
+        console.log('Notification permissions granted:', permissionGranted);
+        
+        if (permissionGranted) {
+          await notificationService.initializePushNotifications();
+        }
+      }, 1000);
     };
     
     initializeNotifications();
