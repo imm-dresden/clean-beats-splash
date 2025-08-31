@@ -236,26 +236,32 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
       {/* Comments Section */}
       {isOpen && (
         <div className="space-y-3">
-          {/* Add Comment */}
-          <div className="space-y-2">
-            <Textarea
-              placeholder="Write a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="min-h-[60px] resize-none"
-            />
-            <div className="flex justify-end">
-              <Button 
-                size="sm" 
-                onClick={handleSubmitComment}
-                disabled={!newComment.trim() || loading}
-                className="gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Post
-              </Button>
+          {/* Add Comment - Only show if user is authenticated */}
+          {currentUser ? (
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Write a comment..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="min-h-[60px] resize-none"
+              />
+              <div className="flex justify-end">
+                <Button 
+                  size="sm" 
+                  onClick={handleSubmitComment}
+                  disabled={!newComment.trim() || loading}
+                  className="gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  Post
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Please log in to add comments
+            </p>
+          )}
 
           {/* Comments List */}
           <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -296,6 +302,7 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
                             size="sm"
                             className="h-6 px-2 text-xs"
                             onClick={() => setReplyingTo(comment.id)}
+                            disabled={!currentUser}
                           >
                             <Reply className="w-3 h-3 mr-1" />
                             Reply

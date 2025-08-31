@@ -39,8 +39,8 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
   useEffect(() => {
     if (isOpen) {
       fetchComments();
-      getCurrentUser();
     }
+    getCurrentUser();
   }, [isOpen, postId]);
 
   const getCurrentUser = async () => {
@@ -252,6 +252,7 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
                       size="sm"
                       className="h-6 px-2 text-xs"
                       onClick={() => setReplyingTo(comment.id)}
+                      disabled={!currentUser}
                     >
                       <Reply className="w-3 h-3 mr-1" />
                       Reply
@@ -364,23 +365,29 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
         )}
       </div>
 
-      {/* Add Comment */}
-      <div className="flex gap-2">
-        <Textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Write a comment..."
-          rows={2}
-          className="flex-1"
-        />
-        <Button
-          onClick={handleAddComment}
-          disabled={!newComment.trim() || loading}
-          size="sm"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Add Comment - Only show if user is authenticated */}
+      {currentUser ? (
+        <div className="flex gap-2">
+          <Textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Write a comment..."
+            rows={2}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleAddComment}
+            disabled={!newComment.trim() || loading}
+            size="sm"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-2">
+          Please log in to add comments
+        </p>
+      )}
     </div>
   );
 };
