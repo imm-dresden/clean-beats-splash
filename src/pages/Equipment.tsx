@@ -909,9 +909,9 @@ const Equipment = () => {
 
           <TabsContent value="musical-equipment">
             {/* Filters and Sort */}
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-6">
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -925,7 +925,7 @@ const Equipment = () => {
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -937,7 +937,7 @@ const Equipment = () => {
             </div>
 
             {/* Equipment Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {getFilteredAndSortedEquipment().map((item) => {
                 const daysUntilDue = getDaysUntilDue(item.next_cleaning_due);
                 const streak = getCleaningStreak(item.id);
@@ -1061,13 +1061,13 @@ const Equipment = () => {
 
           <TabsContent value="cleaning-equipment">
             {/* Cleaning Equipment Section */}
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Cleaning Equipment</h2>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold">Cleaning Equipment</h2>
               <Dialog open={isAddCleaningEquipmentDialogOpen} onOpenChange={setIsAddCleaningEquipmentDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
+                  <Button className="gap-2 w-full sm:w-auto">
                     <Plus className="w-4 h-4" />
-                    Add Cleaning Equipment
+                    <span className="sm:inline">Add Cleaning Equipment</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
@@ -1195,63 +1195,65 @@ const Equipment = () => {
             </div>
 
             {/* Cleaning Equipment Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {cleaningEquipment.map((item) => (
                 <Card key={item.id} className="glass-card hover:shadow-lg transition-shadow cursor-pointer">
                   <CardHeader 
-                    className="pb-2"
+                    className="pb-2 px-3 sm:px-6"
                     onClick={() => openCleaningEquipmentDetailDialog(item)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                         {item.photo_url ? (
                           <img 
                             src={item.photo_url} 
                             alt={item.name}
-                            className="w-16 h-16 object-cover rounded-lg border"
+                            className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border flex-shrink-0"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
                         ) : (
-                          <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center text-2xl">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-lg flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
                             {cleaningEquipmentIcons[item.type as keyof typeof cleaningEquipmentIcons] || item.icon || "🧰"}
                           </div>
                         )}
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground capitalize">{item.type.replace('_', ' ')}</p>
-                          <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm sm:text-lg truncate">{item.name}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground capitalize truncate">{item.type.replace('_', ' ')}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Qty: {item.quantity}</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             openEditCleaningEquipmentDialog(item);
                           }}
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteCleaningEquipment(item.id);
                           }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3" onClick={() => openCleaningEquipmentDetailDialog(item)}>
+                  <CardContent className="space-y-3 px-3 sm:px-6" onClick={() => openCleaningEquipmentDetailDialog(item)}>
                     <div className="space-y-2">
                       {item.next_replacement_due && (
-                        <div className="text-sm">
+                        <div className="text-xs sm:text-sm">
                           <span className="text-muted-foreground">Next replacement: </span>
                           <span className={getDaysUntilReplacement(item.next_replacement_due) !== null && getDaysUntilReplacement(item.next_replacement_due)! < 0 ? "text-red-500" : ""}>
                             {format(new Date(item.next_replacement_due), 'MMM dd, yyyy')}
@@ -1259,7 +1261,7 @@ const Equipment = () => {
                         </div>
                       )}
                       {item.cost_per_unit && (
-                        <div className="text-sm">
+                        <div className="text-xs sm:text-sm">
                           <span className="text-muted-foreground">Cost: </span>
                           <span>${item.cost_per_unit}</span>
                         </div>
@@ -1268,7 +1270,7 @@ const Equipment = () => {
                     
                     <div className="flex gap-2">
                       {item.show_on_profile && (
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="text-xs">
                           On Profile
                         </Badge>
                       )}
@@ -1280,11 +1282,14 @@ const Equipment = () => {
 
             {cleaningEquipment.length === 0 && (
               <Card className="glass-card">
-                <CardContent className="text-center py-12">
-                  <div className="text-4xl mb-4">🧰</div>
-                  <h3 className="text-lg font-medium mb-2">No cleaning equipment added yet</h3>
-                  <p className="text-muted-foreground mb-4">Start by adding your first cleaning item</p>
-                  <Button onClick={() => setIsAddCleaningEquipmentDialogOpen(true)}>
+                <CardContent className="text-center py-8 sm:py-12 px-4">
+                  <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">🧰</div>
+                  <h3 className="text-base sm:text-lg font-medium mb-2">No cleaning equipment added yet</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground mb-4">Start by adding your first cleaning item</p>
+                  <Button 
+                    onClick={() => setIsAddCleaningEquipmentDialogOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Cleaning Equipment
                   </Button>
