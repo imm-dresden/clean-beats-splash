@@ -41,10 +41,9 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
 
   useEffect(() => {
     getCurrentUser();
+    fetchCommentsCount();
     if (isOpen) {
       fetchComments();
-    } else {
-      fetchCommentsCount();
     }
   }, [eventId, isOpen]);
 

@@ -39,11 +39,10 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isOpen) {
-      fetchComments();
-    }
     getCurrentUser();
-  }, [isOpen, postId]);
+    // Always fetch comments for public viewing
+    fetchComments();
+  }, [postId]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
