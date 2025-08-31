@@ -31,9 +31,12 @@ interface Event {
 interface EventCardProps {
   event: Event;
   onEventUpdate: () => void;
+  highlightComment?: string;
+  highlightReply?: string;
+  id?: string;
 }
 
-const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
+const EventCard = ({ event, onEventUpdate, highlightComment, highlightReply, id }: EventCardProps) => {
   const [isLiked, setIsLiked] = useState(event.is_liked || false);
   const [likesCount, setLikesCount] = useState(event.likes_count || 0);
   const [isGoing, setIsGoing] = useState(event.is_going || false);
@@ -124,7 +127,7 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden mb-4">
+    <Card id={id} className="bg-card border-border overflow-hidden mb-4">
       {/* Event Header */}
       <CardContent className="p-4 pb-3">
         <div className="flex items-center gap-3 mb-3">
@@ -197,6 +200,7 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
             size="sm" 
             className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors"
             onClick={() => setShowComments(!showComments)}
+            data-comments-toggle
           >
             <MessageCircle className="w-5 h-5" />
             <span className="text-sm">Comment</span>
@@ -219,6 +223,8 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
             eventId={event.id}
             isOpen={showComments}
             onToggle={() => setShowComments(!showComments)}
+            highlightComment={highlightComment}
+            highlightReply={highlightReply}
           />
         )}
       </CardContent>

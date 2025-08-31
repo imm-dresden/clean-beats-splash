@@ -9,6 +9,7 @@ import EventCard from "@/components/EventCard";
 import UniversalSearch from "@/components/UniversalSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "react-router-dom";
 
 interface Post {
   id: string;
@@ -53,11 +54,44 @@ const Community = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     fetchCurrentUser();
     fetchFeedData();
   }, []);
+
+  // Handle notification navigation highlighting
+  useEffect(() => {
+    if (location.state?.highlightPost || location.state?.highlightEvent) {
+      const timeout = setTimeout(() => {
+        const highlightId = location.state.highlightPost || location.state.highlightEvent;
+        const element = document.getElementById(`post-${highlightId}`) || document.getElementById(`event-${highlightId}`);
+        
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Add temporary highlight effect
+          element.style.boxShadow = '0 0 0 3px rgba(var(--primary), 0.5)';
+          element.style.transition = 'box-shadow 0.3s ease';
+          
+          setTimeout(() => {
+            element.style.boxShadow = '';
+          }, 3000);
+          
+          // If should scroll to comments, trigger comment expansion
+          if (location.state.scrollToComments) {
+            const commentsButton = element.querySelector('[data-comments-toggle]');
+            if (commentsButton && commentsButton instanceof HTMLElement) {
+              commentsButton.click();
+            }
+          }
+        }
+      }, 1000); // Wait for posts to load
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [location.state, posts, events]);
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -283,6 +317,9 @@ const Community = () => {
                       post={item}
                       isOwner={item.user_id === currentUser?.id}
                       onPostUpdate={fetchFeedData}
+                      highlightComment={location.state?.highlightPost === item.id ? location.state.highlightComment : undefined}
+                      highlightReply={location.state?.highlightPost === item.id ? location.state.highlightReply : undefined}
+                      id={`post-${item.id}`}
                     />
                   );
                 } else {
@@ -291,6 +328,9 @@ const Community = () => {
                       key={item.id}
                       event={item}
                       onEventUpdate={fetchFeedData}
+                      highlightComment={location.state?.highlightEvent === item.id ? location.state.highlightComment : undefined}
+                      highlightReply={location.state?.highlightEvent === item.id ? location.state.highlightReply : undefined}
+                      id={`event-${item.id}`}
                     />
                   );
                 }
@@ -315,6 +355,9 @@ const Community = () => {
                 post={post}
                 isOwner={post.user_id === currentUser?.id}
                 onPostUpdate={fetchFeedData}
+                highlightComment={location.state?.highlightPost === post.id ? location.state.highlightComment : undefined}
+                highlightReply={location.state?.highlightPost === post.id ? location.state.highlightReply : undefined}
+                id={`post-${post.id}`}
               />
             ))}
             
@@ -334,6 +377,9 @@ const Community = () => {
                 key={event.id}
                 event={event}
                 onEventUpdate={fetchFeedData}
+                highlightComment={location.state?.highlightEvent === event.id ? location.state.highlightComment : undefined}
+                highlightReply={location.state?.highlightEvent === event.id ? location.state.highlightReply : undefined}
+                id={`event-${event.id}`}
               />
             ))}
             

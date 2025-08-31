@@ -26,9 +26,11 @@ interface CommentsSectionProps {
   postId: string;
   isOpen: boolean;
   onClose: () => void;
+  highlightComment?: string;
+  highlightReply?: string;
 }
 
-const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
+const CommentsSection = ({ postId, isOpen, onClose, highlightComment, highlightReply }: CommentsSectionProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -43,6 +45,22 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
     // Always fetch comments for public viewing
     fetchComments();
   }, [postId]);
+
+  // Handle comment/reply highlighting when they're specified
+  useEffect(() => {
+    if (highlightComment || highlightReply) {
+      const timeout = setTimeout(() => {
+        const elementId = highlightReply ? `reply-${highlightReply}` : `comment-${highlightComment}`;
+        const element = document.getElementById(elementId);
+        
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500); // Wait for comments to render
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [highlightComment, highlightReply, comments]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -226,7 +244,12 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
         {comments.map((comment) => (
           <div key={comment.id} className="space-y-2">
             {/* Main Comment */}
-            <Card className="bg-background/50">
+            <Card 
+              id={`comment-${comment.id}`}
+              className={`bg-background/50 ${
+                highlightComment === comment.id ? 'ring-2 ring-primary shadow-lg' : ''
+              }`}
+            >
               <CardContent className="p-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -315,9 +338,15 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
 
             {/* Replies */}
             {comment.replies && comment.replies.length > 0 && (
-              <div className="ml-6 space-y-2">
+                <div className="ml-6 space-y-2">
                 {comment.replies.map((reply) => (
-                  <Card key={reply.id} className="bg-muted/30">
+                  <Card 
+                    key={reply.id} 
+                    id={`reply-${reply.id}`}
+                    className={`bg-muted/30 ${
+                      highlightReply === reply.id ? 'ring-2 ring-primary shadow-lg' : ''
+                    }`}
+                  >
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">

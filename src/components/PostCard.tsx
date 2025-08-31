@@ -30,9 +30,12 @@ interface PostCardProps {
   post: Post;
   isOwner: boolean;
   onPostUpdate: () => void;
+  highlightComment?: string;
+  highlightReply?: string;
+  id?: string;
 }
 
-const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
+const PostCard = ({ post, isOwner, onPostUpdate, highlightComment, highlightReply, id }: PostCardProps) => {
   const [isLiked, setIsLiked] = useState(post.is_liked || false);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [isEditing, setIsEditing] = useState(false);
@@ -147,7 +150,7 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden max-w-md mx-auto">
+    <Card id={id} className="bg-card border-border overflow-hidden max-w-md mx-auto">
       {/* Post Header */}
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-3">
@@ -237,6 +240,7 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
             size="sm" 
             className="gap-1 p-0 h-auto text-foreground hover:text-accent transition-colors"
             onClick={() => setShowComments(!showComments)}
+            data-comments-toggle
           >
             <MessageCircle className="w-5 h-5" />
           </Button>
@@ -272,6 +276,8 @@ const PostCard = ({ post, isOwner, onPostUpdate }: PostCardProps) => {
           postId={post.id}
           isOpen={showComments}
           onClose={() => setShowComments(false)}
+          highlightComment={highlightComment}
+          highlightReply={highlightReply}
         />
       </CardContent>
     </Card>

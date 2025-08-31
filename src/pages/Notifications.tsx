@@ -127,22 +127,56 @@ const Notifications = () => {
         }
         break;
       case 'like':
-      case 'comment':
         if (notification.data?.post_id) {
           navigate('/community', { state: { highlightPost: notification.data.post_id } });
         }
         break;
+      case 'comment':
+        if (notification.data?.post_id) {
+          navigate('/community', { 
+            state: { 
+              highlightPost: notification.data.post_id,
+              highlightComment: notification.data.comment_id,
+              scrollToComments: true
+            } 
+          });
+        }
+        break;
       case 'event_like':
+        if (notification.data?.event_id) {
+          navigate('/community', { state: { highlightEvent: notification.data.event_id } });
+        }
+        break;
       case 'event_comment':
         if (notification.data?.event_id) {
-          navigate('/calendar', { state: { highlightEvent: notification.data.event_id } });
+          navigate('/community', { 
+            state: { 
+              highlightEvent: notification.data.event_id,
+              highlightComment: notification.data.comment_id,
+              scrollToComments: true
+            } 
+          });
         }
         break;
       case 'comment_reply':
         if (notification.data?.post_id) {
-          navigate('/community', { state: { highlightPost: notification.data.post_id } });
+          navigate('/community', { 
+            state: { 
+              highlightPost: notification.data.post_id,
+              highlightComment: notification.data.parent_comment_id,
+              highlightReply: notification.data.comment_id,
+              scrollToComments: true
+            } 
+          });
         } else if (notification.data?.event_id) {
-          navigate('/calendar', { state: { highlightEvent: notification.data.event_id } });
+          navigate('/community', { 
+            state: { 
+              highlightEvent: notification.data.event_id,
+              highlightComment: notification.data.parent_comment_id,
+              highlightReply: notification.data.comment_id,
+              scrollToComments: true
+            } 
+          });
         }
         break;
       case 'cleaning_reminder':

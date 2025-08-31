@@ -26,9 +26,11 @@ interface EventCommentsSectionProps {
   eventId: string;
   isOpen: boolean;
   onToggle: () => void;
+  highlightComment?: string;
+  highlightReply?: string;
 }
 
-const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectionProps) => {
+const EventCommentsSection = ({ eventId, isOpen, onToggle, highlightComment, highlightReply }: EventCommentsSectionProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -46,6 +48,22 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
       fetchComments();
     }
   }, [eventId, isOpen]);
+
+  // Handle comment/reply highlighting when they're specified
+  useEffect(() => {
+    if ((highlightComment || highlightReply) && isOpen && comments.length > 0) {
+      const timeout = setTimeout(() => {
+        const elementId = highlightReply ? `reply-${highlightReply}` : `comment-${highlightComment}`;
+        const element = document.getElementById(elementId);
+        
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500); // Wait for comments to render
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [highlightComment, highlightReply, isOpen, comments]);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -299,7 +317,12 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
               comments.map((comment) => (
                 <div key={comment.id} className="space-y-2">
                   {/* Main Comment */}
-                  <Card className="bg-muted/30">
+                  <Card 
+                    id={`comment-${comment.id}`}
+                    className={`bg-muted/30 ${
+                      highlightComment === comment.id ? 'ring-2 ring-primary shadow-lg' : ''
+                    }`}
+                  >
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -390,7 +413,13 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
                   {comment.replies && comment.replies.length > 0 && (
                     <div className="ml-6 space-y-2">
                       {comment.replies.map((reply) => (
-                        <Card key={reply.id} className="bg-muted/20">
+                        <Card 
+                          key={reply.id} 
+                          id={`reply-${reply.id}`}
+                          className={`bg-muted/20 ${
+                            highlightReply === reply.id ? 'ring-2 ring-primary shadow-lg' : ''
+                          }`}
+                        >
                           <CardContent className="p-3">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
