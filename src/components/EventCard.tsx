@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Calendar, MapPin, Users, UserCheck } from "lucide
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import EventCommentsSection from "./EventCommentsSection";
 
 interface Event {
   id: string;
@@ -37,6 +38,7 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
   const [likesCount, setLikesCount] = useState(event.likes_count || 0);
   const [isGoing, setIsGoing] = useState(event.is_going || false);
   const [goingCount, setGoingCount] = useState(event.going_count || 0);
+  const [showComments, setShowComments] = useState(false);
   const { toast } = useToast();
 
   const handleLike = async () => {
@@ -194,6 +196,7 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
             variant="ghost" 
             size="sm" 
             className="gap-2 p-0 h-auto text-foreground hover:text-accent transition-colors"
+            onClick={() => setShowComments(!showComments)}
           >
             <MessageCircle className="w-5 h-5" />
             <span className="text-sm">Comment</span>
@@ -209,6 +212,15 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
             <span className="text-sm">{isGoing ? 'Going' : 'Interested'}</span>
           </Button>
         </div>
+
+        {/* Comments Section */}
+        {showComments && (
+          <EventCommentsSection 
+            eventId={event.id}
+            isOpen={showComments}
+            onToggle={() => setShowComments(!showComments)}
+          />
+        )}
       </CardContent>
     </Card>
   );

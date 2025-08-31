@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar as CalendarIcon, Clock, Music, ChevronLeft, ChevronRight, Plus, MapPin, Edit, Trash } from "lucide-react";
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parse } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,7 +89,8 @@ const Calendar = () => {
     start_time: '',
     end_date: '',
     end_time: '',
-    location: ''
+    location: '',
+    share_with_followers: false
   });
   const { toast } = useToast();
 
@@ -240,6 +242,7 @@ const Calendar = () => {
         user_id: user.id,
         start_date: startDateTime,
         end_date: endDateTime,
+        share_with_followers: eventForm.share_with_followers,
       };
 
       if (editingEvent) {
@@ -269,7 +272,8 @@ const Calendar = () => {
         start_time: '',
         end_date: '',
         end_time: '',
-        location: ''
+        location: '',
+        share_with_followers: false
       });
       fetchEvents();
     } catch (error) {
@@ -314,7 +318,8 @@ const Calendar = () => {
         start_time: format(startDate, "HH:mm"),
         end_date: endDate ? format(endDate, "yyyy-MM-dd") : '',
         end_time: endDate ? format(endDate, "HH:mm") : '',
-        location: event.location || ''
+        location: event.location || '',
+        share_with_followers: false
       });
     } else {
       setEditingEvent(null);
@@ -327,7 +332,8 @@ const Calendar = () => {
         start_time: format(new Date(), "HH:mm"),
         end_date: '',
         end_time: '',
-        location: ''
+        location: '',
+        share_with_followers: false
       });
     }
     setShowEventDialog(true);
@@ -432,16 +438,26 @@ const Calendar = () => {
                     placeholder="Venue or location"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={eventForm.description}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Additional details"
-                    rows={3}
-                  />
-                </div>
+                 <div className="grid gap-2">
+                   <Label htmlFor="description">Description</Label>
+                   <Textarea
+                     id="description"
+                     value={eventForm.description}
+                     onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
+                     placeholder="Additional details"
+                     rows={3}
+                   />
+                 </div>
+                 <div className="flex items-center space-x-2">
+                   <Switch
+                     id="share-followers"
+                     checked={eventForm.share_with_followers}
+                     onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, share_with_followers: checked }))}
+                   />
+                   <Label htmlFor="share-followers" className="text-sm">
+                     Share with followers
+                   </Label>
+                 </div>
                 <div className="flex gap-2 pt-4">
                   <Button 
                     onClick={handleEventSubmit}

@@ -210,6 +210,33 @@ export type Database = {
           },
         ]
       }
+      event_comments: {
+        Row: {
+          content: string
+          created_at: string
+          event_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          event_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_likes: {
         Row: {
           created_at: string
@@ -247,6 +274,7 @@ export type Database = {
           event_type: string
           id: string
           location: string | null
+          share_with_followers: boolean
           start_date: string
           title: string
           updated_at: string
@@ -259,6 +287,7 @@ export type Database = {
           event_type?: string
           id?: string
           location?: string | null
+          share_with_followers?: boolean
           start_date: string
           title: string
           updated_at?: string
@@ -271,6 +300,7 @@ export type Database = {
           event_type?: string
           id?: string
           location?: string | null
+          share_with_followers?: boolean
           start_date?: string
           title?: string
           updated_at?: string
