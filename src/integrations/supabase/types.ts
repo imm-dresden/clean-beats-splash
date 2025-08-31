@@ -513,6 +513,10 @@ export type Database = {
           total_users: number
         }[]
       }
+      reset_overdue_streaks: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       search_public_profiles: {
         Args: { current_user_id?: string; search_query: string }
         Returns: {
