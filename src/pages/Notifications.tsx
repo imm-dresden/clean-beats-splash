@@ -119,19 +119,38 @@ const Notifications = () => {
       markAsRead(notification.id);
     }
 
-    // Navigate based on notification type
+    // Navigate based on notification type and data
     switch (notification.type) {
       case 'follow':
-        navigate(`/profile/${notification.data?.follower_id}`);
+        if (notification.data?.follower_username) {
+          navigate(`/profile/${notification.data.follower_username}`);
+        }
         break;
       case 'like':
       case 'comment':
-        // For now, just navigate to own profile where the post is
-        navigate('/profile');
+        if (notification.data?.post_id) {
+          navigate('/community', { state: { highlightPost: notification.data.post_id } });
+        }
+        break;
+      case 'event_like':
+      case 'event_comment':
+        if (notification.data?.event_id) {
+          navigate('/calendar', { state: { highlightEvent: notification.data.event_id } });
+        }
+        break;
+      case 'comment_reply':
+        if (notification.data?.post_id) {
+          navigate('/community', { state: { highlightPost: notification.data.post_id } });
+        } else if (notification.data?.event_id) {
+          navigate('/calendar', { state: { highlightEvent: notification.data.event_id } });
+        }
         break;
       case 'cleaning_reminder':
         navigate('/equipment');
         break;
+      default:
+        // Fallback navigation
+        navigate('/home');
     }
   };
 
@@ -140,8 +159,11 @@ const Notifications = () => {
       case 'follow':
         return <UserPlus className="w-5 h-5 text-blue-500" />;
       case 'like':
+      case 'event_like':
         return <Heart className="w-5 h-5 text-red-500" />;
       case 'comment':
+      case 'comment_reply':
+      case 'event_comment':
         return <MessageCircle className="w-5 h-5 text-green-500" />;
       case 'cleaning_reminder':
         return <Calendar className="w-5 h-5 text-orange-500" />;

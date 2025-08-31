@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import BottomNavigation from "./components/BottomNavigation";
+import NotificationPermissionBanner from "./components/NotificationPermissionBanner";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const AppContent = () => {
         <Route path="*" element={<NotFound />} />
       </Routes>
       {!hideNavigation && <BottomNavigation />}
+      <NotificationPermissionBanner />
     </div>
   );
 };
