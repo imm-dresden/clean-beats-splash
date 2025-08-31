@@ -27,17 +27,21 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     console.log('Starting scheduled cleaning reminders check...');
     
-    const { reminderType = 'noon' } = await req.json();
-    console.log('Reminder type:', reminderType);
+    const { reminderType = 'noon', checkHour = false } = await req.json();
+    console.log('Reminder type:', reminderType, 'Check hour:', checkHour);
 
     // Get current time in UTC
     const now = new Date();
-    const currentHour = now.getUTCHours();
     
-    // For noon reminders, we check for 12:00 PM in user's timezone
-    // For evening reminders, we check for 11:30 PM in user's timezone
-    const targetHour = reminderType === 'noon' ? 12 : 23;
-    const targetMinute = reminderType === 'noon' ? 0 : 30;
+    // If checkHour is true, we need to find users whose local time matches the target time
+    if (checkHour) {
+      // For noon reminders, check for users where it's currently 12:00 PM in their timezone
+      // For evening reminders, check for users where it's currently 11:30 PM in their timezone
+      const targetHour = reminderType === 'noon' ? 12 : 23;
+      const targetMinute = reminderType === 'noon' ? 0 : 30;
+      
+      console.log(`Looking for users where local time is ${targetHour}:${String(targetMinute).padStart(2, '0')}`);
+    }
 
     // Fetch equipment that needs cleaning reminders
     const { data: overdueEquipment, error: equipmentError } = await supabase
@@ -122,9 +126,37 @@ const handler = async (req: Request): Promise<Response> => {
       const dueDate = new Date(equipment.next_cleaning_due);
       const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Check if it's the right time to send reminder in user's timezone
-      // For now, we'll send at the scheduled time regardless of timezone
-      // In a production system, you'd want more sophisticated timezone handling
+      // If checkHour is true, verify it's the right time in user's timezone
+      if (checkHour) {
+        try {
+          // Get current time in user's timezone
+          const userLocalTime = new Intl.DateTimeFormat('en-US', {
+            timeZone: userTimezone,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false
+          }).formatToParts(now);
+          
+          const userHour = parseInt(userLocalTime.find(part => part.type === 'hour')?.value || '0');
+          const userMinute = parseInt(userLocalTime.find(part => part.type === 'minute')?.value || '0');
+          
+          const targetHour = reminderType === 'noon' ? 12 : 23;
+          const targetMinute = reminderType === 'noon' ? 0 : 30;
+          
+          // Check if current time matches target time (within 1 hour window)
+          const timeMatches = userHour === targetHour && Math.abs(userMinute - targetMinute) <= 30;
+          
+          if (!timeMatches) {
+            console.log(`Skipping ${equipment.user_id} - wrong time (${userHour}:${userMinute} in ${userTimezone})`);
+            continue;
+          }
+          
+          console.log(`Time matches for ${equipment.user_id} - ${userHour}:${userMinute} in ${userTimezone}`);
+        } catch (error) {
+          console.error(`Error checking timezone for ${equipment.user_id}:`, error);
+          // Continue without timezone check on error
+        }
+      }
       
       remindersToSend.push({
         userId: equipment.user_id,
