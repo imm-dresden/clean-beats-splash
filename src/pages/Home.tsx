@@ -287,8 +287,15 @@ const Home = () => {
             className="w-full"
           >
             <Bell className="w-4 h-4 mr-2" />
-            Test Push Notifications
+            {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' 
+              ? 'Send Test Notification' 
+              : 'Enable Notifications'}
           </Button>
+          {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied' && (
+            <p className="text-sm text-muted-foreground mt-2 text-center">
+              Notifications blocked. Please enable them in your browser settings.
+            </p>
+          )}
         </div>
 
         {/* Shortcut Cards */}
