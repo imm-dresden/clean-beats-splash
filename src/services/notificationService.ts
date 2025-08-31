@@ -128,7 +128,6 @@ class NotificationService {
   async sendTestNotification(): Promise<boolean> {
     console.log('Sending test notification...');
     console.log('Is native platform:', this.isNative);
-    console.log('Service worker registration:', this.serviceWorkerRegistration);
     
     if (this.isNative) {
       try {
@@ -136,8 +135,8 @@ class NotificationService {
         await LocalNotifications.schedule({
           notifications: [
             {
-              title: 'Test Notification',
-              body: 'This is a test notification from Clean Beats!',
+              title: 'Clean Beats Test',
+              body: 'This is a test notification from Clean Beats! 🎵',
               id: 999999,
               schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
               sound: 'default',
@@ -160,20 +159,41 @@ class NotificationService {
       
       if ('Notification' in window) {
         if (Notification.permission === 'granted') {
-          console.log('Creating web notification...');
-          const notification = new Notification('Test Notification', {
-            body: 'This is a test notification from Clean Beats!',
-            icon: '/favicon.ico',
-            tag: 'test-notification'
-          });
-          
-          notification.onclick = () => {
-            console.log('Test notification clicked');
-            notification.close();
-          };
-          
-          console.log('Web notification created successfully');
-          return true;
+          try {
+            console.log('Creating web notification...');
+            const notification = new Notification('Clean Beats Test', {
+              body: 'This is a test notification from Clean Beats! 🎵',
+              icon: '/favicon.ico',
+              tag: 'test-notification',
+              requireInteraction: false,
+              silent: false
+            });
+            
+            notification.onclick = () => {
+              console.log('Test notification clicked');
+              window.focus();
+              notification.close();
+            };
+            
+            notification.onerror = (error) => {
+              console.error('Notification error:', error);
+            };
+            
+            notification.onshow = () => {
+              console.log('Notification shown successfully');
+            };
+            
+            // Auto close after 5 seconds
+            setTimeout(() => {
+              notification.close();
+            }, 5000);
+            
+            console.log('Web notification created successfully');
+            return true;
+          } catch (error) {
+            console.error('Error creating notification:', error);
+            return false;
+          }
         } else {
           console.log('Notification permission not granted. Current status:', Notification.permission);
           return false;

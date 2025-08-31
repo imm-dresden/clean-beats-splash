@@ -73,39 +73,48 @@ const Home = () => {
     console.log('Test notification button clicked');
     
     try {
-      // First check current permission status
+      // Check current permission status
       if ('Notification' in window) {
         console.log('Current notification permission:', Notification.permission);
-      }
-      
-      // Request permissions
-      console.log('Requesting notification permissions...');
-      const hasPermission = await notificationService.requestPermissions();
-      console.log('Permission result:', hasPermission);
-      
-      if (!hasPermission) {
-        console.log('Permission denied, showing toast...');
-        toast({
-          title: "Permission Required",
-          description: "Please enable notifications to test this feature. Check your browser settings if the prompt didn't appear.",
-          variant: "destructive"
-        });
-        return;
+        
+        // If permission is denied, show helpful message
+        if (Notification.permission === 'denied') {
+          toast({
+            title: "Notifications Blocked",
+            description: "Please enable notifications in your browser settings and refresh the page.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // If permission is default, request it
+        if (Notification.permission === 'default') {
+          console.log('Requesting notification permissions...');
+          const hasPermission = await notificationService.requestPermissions();
+          if (!hasPermission) {
+            toast({
+              title: "Permission Required",
+              description: "Please allow notifications when prompted by your browser.",
+              variant: "destructive"
+            });
+            return;
+          }
+        }
       }
 
-      console.log('Permission granted, sending test notification...');
+      console.log('Sending test notification...');
       const success = await notificationService.sendTestNotification();
       console.log('Test notification result:', success);
       
       if (success) {
         toast({
           title: "Test Notification Sent!",
-          description: "Check your notification area for the test message."
+          description: "You should see a notification from Clean Beats in your system notifications."
         });
       } else {
         toast({
           title: "Test Failed",
-          description: "Unable to send test notification. Check console for details.",
+          description: "Unable to send test notification. Check if notifications are enabled in your browser.",
           variant: "destructive"
         });
       }

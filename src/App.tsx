@@ -50,16 +50,23 @@ const AppContent = () => {
 const App = () => {
   useEffect(() => {
     const initializeNotifications = async () => {
-      console.log('App: Initializing notifications (without requesting permissions)...');
+      console.log('App: Initializing notifications...');
       
       try {
-        // Only initialize service worker, don't request permissions yet
+        // Initialize service worker first
         await notificationService.initializeServiceWorker();
         console.log('App: Service worker initialized');
         
-        // Initialize push notifications setup (without permissions)
+        // Initialize push notifications setup
         await notificationService.initializePushNotifications();
         console.log('App: Push notifications initialized');
+        
+        // Request permissions automatically like most websites do
+        setTimeout(async () => {
+          console.log('App: Auto-requesting notification permissions...');
+          const permissionGranted = await notificationService.requestPermissions();
+          console.log('App: Notification permissions granted:', permissionGranted);
+        }, 2000); // Wait 2 seconds after page load
       } catch (error) {
         console.error('App: Error initializing notifications:', error);
       }
