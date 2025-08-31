@@ -467,6 +467,26 @@ export type Database = {
           username: string
         }[]
       }
+      get_public_profile: {
+        Args: { profile_user_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          user_id: string
+          username: string
+        }[]
+      }
+      get_public_profiles: {
+        Args: { profile_user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_user_best_streak: {
         Args: { p_user_id: string }
         Returns: number
@@ -476,6 +496,15 @@ export type Database = {
         Returns: {
           rank_position: number
           total_users: number
+        }[]
+      }
+      search_public_profiles: {
+        Args: { current_user_id?: string; search_query: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          user_id: string
+          username: string
         }[]
       }
     }

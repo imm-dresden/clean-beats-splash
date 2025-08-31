@@ -63,11 +63,10 @@ const UniversalSearch = ({
         
         const cleanQuery = searchQuery.replace('@', ''); // Remove @ if present
         const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, username, display_name, avatar_url')
-          .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
-          .neq('user_id', currentUser?.id || '') // Exclude current user
-          .limit(5);
+          .rpc('search_public_profiles', { 
+            search_query: cleanQuery,
+            current_user_id: currentUser?.id 
+          });
 
         if (error) throw error;
 

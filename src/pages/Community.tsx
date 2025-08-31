@@ -115,12 +115,11 @@ const Community = () => {
     // Get profile info and engagement data for posts
     const postsWithDetails = await Promise.all(
       (postsData || []).map(async (post) => {
-        // Get author profile
+        // Get author profile using secure function
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('display_name, username, avatar_url')
-          .eq('user_id', post.user_id)
-          .single();
+          .rpc('get_public_profile', { profile_user_id: post.user_id });
+        
+        const authorProfile = profileData && profileData.length > 0 ? profileData[0] : null;
 
         // Get likes count and user's like status
         const { count: likesCount } = await supabase
@@ -137,7 +136,7 @@ const Community = () => {
 
         return {
           ...post,
-          author: profileData,
+          author: authorProfile,
           likes_count: likesCount || 0,
           is_liked: !!userLike
         };
@@ -160,12 +159,11 @@ const Community = () => {
     // Get profile info and engagement data for events
     const eventsWithDetails = await Promise.all(
       (eventsData || []).map(async (event) => {
-        // Get author profile
+        // Get author profile using secure function
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('display_name, username, avatar_url')
-          .eq('user_id', event.user_id)
-          .single();
+          .rpc('get_public_profile', { profile_user_id: event.user_id });
+        
+        const authorProfile = profileData && profileData.length > 0 ? profileData[0] : null;
 
         // Get likes count and user's like status
         const { count: likesCount } = await supabase
@@ -200,7 +198,7 @@ const Community = () => {
 
         return {
           ...event,
-          author: profileData,
+          author: authorProfile,
           likes_count,
           is_liked,
           going_count,

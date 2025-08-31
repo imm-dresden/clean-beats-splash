@@ -87,12 +87,15 @@ const Auth = () => {
 
       try {
         const { data, error } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('username', username.toLowerCase())
-          .maybeSingle();
+          .rpc('search_public_profiles', { 
+            search_query: username.toLowerCase(),
+            current_user_id: null 
+          });
+
+        if (error) throw error;
         
-        const isUnique = !data && !error;
+        const usernameExists = data?.some((profile: any) => profile.username === username.toLowerCase());
+        const isUnique = !usernameExists;
         setUsernameStatus({ isChecking: false, isUnique });
       } catch (error) {
         setUsernameStatus({ isChecking: false, isUnique: null });
@@ -112,13 +115,10 @@ const Auth = () => {
       setEmailStatus({ isChecking: true, isUnique: null });
 
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('email', email.toLowerCase())
-          .maybeSingle();
-        
-        const isUnique = !data && !error;
+        // Use auth.admin is not available in client-side code
+        // Instead, we'll rely on the server-side validation during signup
+        // This prevents direct database queries that could expose email addresses
+        const isUnique = true; // We'll let the signup process handle duplicate checking
         setEmailStatus({ isChecking: false, isUnique });
       } catch (error) {
         setEmailStatus({ isChecking: false, isUnique: null });
@@ -162,12 +162,17 @@ const Auth = () => {
     if (username.length < 3) return false;
     
     const { data, error } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username.toLowerCase())
-      .maybeSingle();
+      .rpc('search_public_profiles', { 
+        search_query: username.toLowerCase(),
+        current_user_id: null 
+      });
+
+    if (error) {
+      console.error('Error checking username:', error);
+      return false;
+    }
     
-    return !data && !error;
+    return !data?.some((profile: any) => profile.username === username.toLowerCase());
   };
 
 

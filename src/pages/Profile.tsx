@@ -124,14 +124,35 @@ const Profile = () => {
 
   const fetchUserProfile = async (targetUserId: string) => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .single();
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
       
-      setUserProfile(profile);
-      setBioText(profile?.bio || "");
+      if (currentUser && currentUser.id === targetUserId) {
+        // User viewing their own profile - can access all data including email
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .single();
+        
+        if (profile) {
+          setUserProfile(profile);
+          setBioText(profile?.bio || "");
+        }
+      } else {
+        // Viewing someone else's profile - use secure function
+        const { data: profileData } = await supabase
+          .rpc('get_public_profile', { profile_user_id: targetUserId });
+        
+        if (profileData && profileData.length > 0) {
+          const profile = profileData[0];
+          setUserProfile({
+            ...profile,
+            id: profile.user_id, // Map user_id to id for compatibility
+            email: null // Don't include email for public profiles
+          });
+          setBioText(profile?.bio || "");
+        }
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
@@ -170,12 +191,11 @@ const Profile = () => {
 
       if (error) throw error;
 
-      // Get profile info separately
+      // Get profile info using secure function
       const { data: profileData } = await supabase
-        .from('profiles')
-        .select('display_name, username')
-        .eq('user_id', targetUserId)
-        .single();
+        .rpc('get_public_profile', { profile_user_id: targetUserId });
+      
+      const authorProfile = profileData && profileData.length > 0 ? profileData[0] : null;
 
       // Transform data to include likes count and check if current user liked
       const postsWithLikes = await Promise.all(
@@ -199,7 +219,7 @@ const Profile = () => {
 
           return {
             ...post,
-            author: profileData,
+            author: authorProfile,
             likes_count: likesCount || 0,
             is_liked: !!userLike
           };

@@ -51,11 +51,10 @@ const UserSearch = ({ placeholder = "Search users...", className = "" }: UserSea
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         
         const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, username, display_name, avatar_url')
-          .or(`username.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
-          .neq('user_id', currentUser?.id || '') // Exclude current user
-          .limit(10);
+          .rpc('search_public_profiles', { 
+            search_query: searchQuery,
+            current_user_id: currentUser?.id 
+          });
 
         if (error) throw error;
 

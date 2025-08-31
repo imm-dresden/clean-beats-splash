@@ -56,11 +56,9 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
       // Get unique user IDs from comments
       const userIds = [...new Set(commentsData?.map(comment => comment.user_id) || [])];
       
-      // Fetch profiles for all comment authors
+      // Fetch profiles for all comment authors using secure function
       const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, username')
-        .in('user_id', userIds);
+        .rpc('get_public_profiles', { profile_user_ids: userIds });
 
       // Create a map for quick lookup
       const profileMap = new Map(profilesData?.map(profile => [profile.user_id, profile]) || []);
