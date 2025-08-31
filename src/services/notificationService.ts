@@ -11,6 +11,31 @@ interface NotificationData {
 
 class NotificationService {
   private isNative = Capacitor.isNativePlatform();
+  private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+
+  async initializeServiceWorker() {
+    if (!this.isNative && 'serviceWorker' in navigator) {
+      try {
+        this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered successfully');
+        
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'MARK_EQUIPMENT_CLEANED') {
+            // Handle equipment marking logic here
+            this.handleEquipmentCleaned(event.data.equipmentId);
+          }
+        });
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
+      }
+    }
+  }
+
+  private async handleEquipmentCleaned(equipmentId: string) {
+    // This would integrate with your equipment management system
+    console.log(`Equipment ${equipmentId} marked as cleaned from notification`);
+  }
 
   async requestPermissions() {
     if (this.isNative) {
@@ -134,22 +159,36 @@ class NotificationService {
   }
 
   private async scheduleWebNotification(equipmentId: string, equipmentName: string, notificationTime: Date) {
-    // For web, we'll use Resend to send email notifications
-    const timeUntilNotification = notificationTime.getTime() - Date.now();
-    
-    if (timeUntilNotification > 0) {
-      setTimeout(async () => {
-        // Show browser notification if user is active
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Clean Beats Reminder', {
-            body: `Time to clean your ${equipmentName}! Cleaning is due in 1 hour.`,
-            icon: '/favicon.ico'
-          });
-        }
-        
-        // Also send email notification via Resend
-        await this.sendEmailNotification(equipmentName);
-      }, timeUntilNotification);
+    if (this.serviceWorkerRegistration) {
+      // Use service worker for persistent notifications
+      const notificationId = `cleaning-${equipmentId}`;
+      
+      // Send notification data to service worker
+      this.serviceWorkerRegistration.active?.postMessage({
+        type: 'SCHEDULE_NOTIFICATION',
+        id: notificationId,
+        title: 'Clean Beats Reminder',
+        body: `Time to clean your ${equipmentName}! Cleaning is due in 1 hour.`,
+        scheduleTime: notificationTime.toISOString(),
+        equipmentId
+      });
+    } else {
+      // Fallback to setTimeout for browsers without service worker support
+      const timeUntilNotification = notificationTime.getTime() - Date.now();
+      
+      if (timeUntilNotification > 0) {
+        setTimeout(async () => {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Clean Beats Reminder', {
+              body: `Time to clean your ${equipmentName}! Cleaning is due in 1 hour.`,
+              icon: '/favicon.ico',
+              tag: `cleaning-${equipmentId}`,
+              requireInteraction: true
+            });
+          }
+          await this.sendEmailNotification(equipmentName);
+        }, timeUntilNotification);
+      }
     }
   }
 
@@ -179,6 +218,12 @@ class NotificationService {
       } catch (error) {
         console.error('Error canceling notification:', error);
       }
+    } else if (this.serviceWorkerRegistration) {
+      // Cancel web notification via service worker
+      this.serviceWorkerRegistration.active?.postMessage({
+        type: 'CANCEL_NOTIFICATION',
+        equipmentId
+      });
     }
   }
 
