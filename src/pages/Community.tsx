@@ -167,11 +167,36 @@ const Community = () => {
           .eq('user_id', event.user_id)
           .single();
 
-        // For now, we'll use placeholder data until types are updated
-        const likes_count = 0;
-        const is_liked = false;
-        const going_count = 0;
-        const is_going = false;
+        // Get likes count and user's like status
+        const { count: likesCount } = await supabase
+          .from('event_likes')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', event.id);
+
+        const { data: userLike } = await supabase
+          .from('event_likes')
+          .select('id')
+          .eq('event_id', event.id)
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+
+        // Get going count and user's attendance status
+        const { count: goingCount } = await supabase
+          .from('event_attendees')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', event.id);
+
+        const { data: userAttendance } = await supabase
+          .from('event_attendees')
+          .select('id')
+          .eq('event_id', event.id)
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+
+        const likes_count = likesCount || 0;
+        const is_liked = !!userLike;
+        const going_count = goingCount || 0;
+        const is_going = !!userAttendance;
 
         return {
           ...event,

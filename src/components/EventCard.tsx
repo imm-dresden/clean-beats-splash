@@ -40,19 +40,85 @@ const EventCard = ({ event, onEventUpdate }: EventCardProps) => {
   const { toast } = useToast();
 
   const handleLike = async () => {
-    // Placeholder for now - will implement when types are updated
-    toast({
-      title: "Coming Soon",
-      description: "Event likes will be available soon!",
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (isLiked) {
+        // Unlike the event
+        const { error } = await supabase
+          .from('event_likes')
+          .delete()
+          .eq('event_id', event.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        setIsLiked(false);
+        setLikesCount(prev => prev - 1);
+      } else {
+        // Like the event
+        const { error } = await supabase
+          .from('event_likes')
+          .insert({ event_id: event.id, user_id: user.id });
+
+        if (error) throw error;
+
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+      }
+
+      // Call the update callback to refresh the feed
+      onEventUpdate();
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update like status",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleGoing = async () => {
-    // Placeholder for now - will implement when types are updated  
-    toast({
-      title: "Coming Soon",
-      description: "Event attendance will be available soon!",
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (isGoing) {
+        // Remove attendance
+        const { error } = await supabase
+          .from('event_attendees')
+          .delete()
+          .eq('event_id', event.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        setIsGoing(false);
+        setGoingCount(prev => prev - 1);
+      } else {
+        // Add attendance
+        const { error } = await supabase
+          .from('event_attendees')
+          .insert({ event_id: event.id, user_id: user.id });
+
+        if (error) throw error;
+
+        setIsGoing(true);
+        setGoingCount(prev => prev + 1);
+      }
+
+      // Call the update callback to refresh the feed
+      onEventUpdate();
+    } catch (error) {
+      console.error('Error toggling attendance:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update attendance status",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

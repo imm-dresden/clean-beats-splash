@@ -17,7 +17,21 @@ const config: CapacitorConfig = {
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"]
+    },
+    LocalNotifications: {
+      smallIcon: "ic_stat_icon_config_sample",
+      iconColor: "#488AFF",
+      sound: "beep.wav"
     }
+  },
+  android: {
+    allowMixedContent: true
+  },
+  ios: {
+    contentInset: 'automatic'
   }
 };
 

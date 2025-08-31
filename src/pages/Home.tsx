@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import UserSearch from "@/components/UserSearch";
+import { notificationService } from "@/services/notificationService";
 
 interface Equipment {
   id: string;
@@ -40,6 +41,7 @@ const Home = () => {
     getCurrentUser();
     fetchUnreadNotifications();
     fetchDashboardData();
+    initializeNotifications();
 
     // Set up real-time subscription for notifications
     const channel = supabase
@@ -62,6 +64,44 @@ const Home = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  const initializeNotifications = async () => {
+    await notificationService.initializePushNotifications();
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      const hasPermission = await notificationService.requestPermissions();
+      if (!hasPermission) {
+        toast({
+          title: "Permission Required",
+          description: "Please enable notifications to test this feature.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const success = await notificationService.sendTestNotification();
+      if (success) {
+        toast({
+          title: "Test Notification Sent!",
+          description: "Check your notification area for the test message."
+        });
+      } else {
+        toast({
+          title: "Test Failed",
+          description: "Unable to send test notification.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send test notification.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -221,6 +261,18 @@ const Home = () => {
             placeholder="Search users..."
             className="w-full"
           />
+        </div>
+
+        {/* Test Notification Button */}
+        <div className="mb-6">
+          <Button
+            onClick={handleTestNotification}
+            variant="outline"
+            className="w-full"
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            Test Push Notifications
+          </Button>
         </div>
 
         {/* Shortcut Cards */}

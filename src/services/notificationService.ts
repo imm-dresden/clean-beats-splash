@@ -1,4 +1,5 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,8 +14,10 @@ class NotificationService {
 
   async requestPermissions() {
     if (this.isNative) {
-      const permission = await LocalNotifications.requestPermissions();
-      return permission.display === 'granted';
+      // Request both local and push notification permissions
+      const localPermission = await LocalNotifications.requestPermissions();
+      const pushPermission = await PushNotifications.requestPermissions();
+      return localPermission.display === 'granted' && pushPermission.receive === 'granted';
     } else {
       // Web notifications
       if ('Notification' in window) {
@@ -23,6 +26,73 @@ class NotificationService {
       }
     }
     return false;
+  }
+
+  async initializePushNotifications() {
+    if (!this.isNative) return;
+
+    try {
+      // Register for push notifications
+      await PushNotifications.register();
+
+      // Listen for push notification registration
+      PushNotifications.addListener('registration', (token) => {
+        console.log('Push registration success, token: ' + token.value);
+        // You can store this token in your backend for sending targeted notifications
+      });
+
+      // Listen for push notification registration errors
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('Push registration error: ', error);
+      });
+
+      // Listen for incoming push notifications
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('Push received: ', notification);
+      });
+
+      // Listen for push notification actions
+      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        console.log('Push action performed: ', notification);
+      });
+    } catch (error) {
+      console.error('Error initializing push notifications:', error);
+    }
+  }
+
+  async sendTestNotification() {
+    if (this.isNative) {
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: 'Test Notification',
+              body: 'This is a test notification from Clean Beats!',
+              id: 999999,
+              schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
+              sound: 'default',
+              attachments: undefined,
+              actionTypeId: '',
+              extra: {}
+            }
+          ]
+        });
+        return true;
+      } catch (error) {
+        console.error('Error sending test notification:', error);
+        return false;
+      }
+    } else {
+      // Web test notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Test Notification', {
+          body: 'This is a test notification from Clean Beats!',
+          icon: '/favicon.ico'
+        });
+        return true;
+      }
+      return false;
+    }
   }
 
   async scheduleCleaningNotification(data: NotificationData) {

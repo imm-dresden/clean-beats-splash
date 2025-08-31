@@ -154,13 +154,12 @@ const Equipment = () => {
   }, []);
 
   const initializeNotifications = async () => {
-    const hasPermission = await notificationService.requestPermissions();
-    if (!hasPermission) {
-      toast({
-        title: "Notification permissions denied",
-        description: "You won't receive cleaning reminders.",
-        variant: "destructive"
-      });
+    try {
+      await notificationService.initializePushNotifications();
+      // Only show permission request when user explicitly tries to enable notifications
+      // Don't show error on initial load
+    } catch (error) {
+      console.error('Error initializing notifications:', error);
     }
   };
 
