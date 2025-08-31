@@ -65,45 +65,62 @@ const Home = () => {
             // Update unread count
             setUnreadNotifications(prev => prev + 1);
             
-            // Show desktop notification if permissions are granted
-            if ('Notification' in window && Notification.permission === 'granted') {
-              const notificationData = payload.new;
-              console.log('Creating desktop notification:', notificationData);
+            // Check and show desktop notification
+            console.log('Checking notification permission:', Notification?.permission);
+            console.log('Notification API available:', 'Notification' in window);
+            
+            if ('Notification' in window) {
+              console.log('Current permission status:', Notification.permission);
               
-              const notification = new Notification(notificationData.title || 'Clean Beats 🎵', {
-                body: notificationData.message,
-                icon: '/favicon.ico',
-                tag: `notification-${notificationData.id}`,
-                requireInteraction: true, // Keeps notification visible until user interacts
-                silent: false,
-                badge: '/favicon.ico'
-              });
-              
-              notification.onclick = () => {
-                console.log('Desktop notification clicked');
-                window.focus();
-                navigate('/notifications');
-                notification.close();
-              };
-              
-              notification.onerror = (error) => {
-                console.error('Desktop notification error:', error);
-              };
-              
-              notification.onshow = () => {
-                console.log('Desktop notification shown successfully');
-              };
-              
-              notification.onclose = () => {
-                console.log('Desktop notification closed');
-              };
-              
-              // Auto close after 8 seconds for better visibility
-              setTimeout(() => {
-                notification.close();
-              }, 8000);
+              if (Notification.permission === 'granted') {
+                const notificationData = payload.new;
+                console.log('Creating desktop notification with data:', notificationData);
+                
+                try {
+                  const notification = new Notification(notificationData.title || 'Clean Beats 🎵', {
+                    body: notificationData.message,
+                    icon: '/favicon.ico',
+                    tag: `notification-${notificationData.id}`,
+                    requireInteraction: true,
+                    silent: false,
+                    badge: '/favicon.ico'
+                  });
+                  
+                  notification.onclick = () => {
+                    console.log('Desktop notification clicked');
+                    window.focus();
+                    navigate('/notifications');
+                    notification.close();
+                  };
+                  
+                  notification.onerror = (error) => {
+                    console.error('Desktop notification error:', error);
+                  };
+                  
+                  notification.onshow = () => {
+                    console.log('Desktop notification shown successfully');
+                  };
+                  
+                  notification.onclose = () => {
+                    console.log('Desktop notification closed');
+                  };
+                  
+                  // Auto close after 8 seconds
+                  setTimeout(() => {
+                    console.log('Auto-closing desktop notification');
+                    notification.close();
+                  }, 8000);
+                  
+                  console.log('Desktop notification created successfully');
+                } catch (error) {
+                  console.error('Failed to create desktop notification:', error);
+                }
+              } else {
+                console.log('Desktop notifications not permitted. Current status:', Notification.permission);
+                console.log('Please grant notification permissions to see desktop notifications');
+              }
             } else {
-              console.log('Desktop notifications not available or not permitted');
+              console.log('Desktop notifications not supported in this browser');
             }
           }
         )
