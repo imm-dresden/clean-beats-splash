@@ -31,6 +31,8 @@ interface Equipment {
   last_cleaned_at?: string;
   next_cleaning_due?: string;
   created_at: string;
+  current_streak: number;
+  best_streak: number;
 }
 
 interface CleaningEquipment {
@@ -715,29 +717,9 @@ const Equipment = () => {
   };
 
   const getCleaningStreak = (equipmentId: string) => {
-    const logs = cleaningLogs
-      .filter(log => log.equipment_id === equipmentId)
-      .sort((a, b) => new Date(b.cleaned_at).getTime() - new Date(a.cleaned_at).getTime());
-    
-    if (logs.length === 0) return 0;
-
-    let streak = 1;
+    // Use the database-calculated current_streak instead of manual calculation
     const equipment_item = equipment.find(e => e.id === equipmentId);
-    const frequency = equipment_item?.cleaning_frequency_days || 30;
-
-    for (let i = 0; i < logs.length - 1; i++) {
-      const current = new Date(logs[i].cleaned_at);
-      const previous = new Date(logs[i + 1].cleaned_at);
-      const daysBetween = Math.abs(current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24);
-      
-      if (daysBetween <= frequency + 3) { // Allow 3 days grace period
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return streak;
+    return equipment_item?.current_streak || 0;
   };
 
   const getDaysUntilDue = (dueDateString?: string) => {
