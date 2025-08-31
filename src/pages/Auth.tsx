@@ -115,12 +115,16 @@ const Auth = () => {
       setEmailStatus({ isChecking: true, isUnique: null });
 
       try {
-        // Use auth.admin is not available in client-side code
-        // Instead, we'll rely on the server-side validation during signup
-        // This prevents direct database queries that could expose email addresses
-        const isUnique = true; // We'll let the signup process handle duplicate checking
+        // Use the secure function to check if email exists
+        const { data: emailExists, error } = await supabase
+          .rpc('check_email_exists', { email_to_check: email.toLowerCase() });
+
+        if (error) throw error;
+
+        const isUnique = !emailExists;
         setEmailStatus({ isChecking: false, isUnique });
       } catch (error) {
+        console.error('Error checking email uniqueness:', error);
         setEmailStatus({ isChecking: false, isUnique: null });
       }
     },
