@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageCircle, Send, Reply, Trash } from "lucide-react";
+import { MessageCircle, Send, Reply, Trash, LogIn, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface Comment {
   id: string;
@@ -35,6 +36,7 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen) {
@@ -199,13 +201,19 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
     }
   };
 
+  const handleAuthRequired = () => {
+    toast({
+      title: "Authentication Required",
+      description: "Please log in or create an account to comment",
+    });
+    navigate('/auth');
+  };
+
   const getTotalCommentsCount = () => {
     return comments.reduce((total, comment) => {
       return total + 1 + (comment.replies?.length || 0);
     }, 0);
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="space-y-4 mt-4 border-t pt-4">
@@ -251,8 +259,7 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
                       variant="ghost"
                       size="sm"
                       className="h-6 px-2 text-xs"
-                      onClick={() => setReplyingTo(comment.id)}
-                      disabled={!currentUser}
+                      onClick={() => currentUser ? setReplyingTo(comment.id) : handleAuthRequired()}
                     >
                       <Reply className="w-3 h-3 mr-1" />
                       Reply
@@ -365,7 +372,7 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
         )}
       </div>
 
-      {/* Add Comment - Only show if user is authenticated */}
+      {/* Add Comment - Show different UI based on auth status */}
       {currentUser ? (
         <div className="flex gap-2">
           <Textarea
@@ -384,9 +391,30 @@ const CommentsSection = ({ postId, isOpen, onClose }: CommentsSectionProps) => {
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground text-center py-2">
-          Please log in to add comments
-        </p>
+        <div className="bg-muted/30 p-4 rounded-lg text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Join the conversation! Log in or create an account to comment.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/auth')}
+              className="gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Log In
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => navigate('/auth')}
+              className="gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Sign Up
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
