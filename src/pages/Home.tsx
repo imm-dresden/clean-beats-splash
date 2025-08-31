@@ -81,7 +81,7 @@ const Home = () => {
         if (Notification.permission === 'denied') {
           toast({
             title: "Notifications Blocked",
-            description: "Please enable notifications in your browser settings and refresh the page.",
+            description: "Click the 🔒 or 🔔 icon in your browser's address bar, change notifications to 'Allow', then refresh this page.",
             variant: "destructive"
           });
           return;
