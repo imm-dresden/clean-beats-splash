@@ -73,48 +73,73 @@ const Home = () => {
     console.log('Test notification button clicked');
     
     try {
-      // Check current permission status
+      // Always try to request permissions first, regardless of current status
       if ('Notification' in window) {
         console.log('Current notification permission:', Notification.permission);
         
-        // If permission is denied, show helpful message
+        // For denied permissions, we'll still try to request (some browsers allow re-prompting)
         if (Notification.permission === 'denied') {
           toast({
-            title: "Notifications Blocked",
-            description: "Click the 🔒 or 🔔 icon in your browser's address bar, change notifications to 'Allow', then refresh this page.",
-            variant: "destructive"
+            title: "Notifications Currently Blocked",
+            description: "Trying to request permissions again. If no dialog appears, please manually enable notifications in your browser settings.",
           });
-          return;
         }
         
-        // If permission is default, request it
-        if (Notification.permission === 'default') {
-          console.log('Requesting notification permissions...');
-          const hasPermission = await notificationService.requestPermissions();
-          if (!hasPermission) {
+        // Always request permission on button click to trigger the browser dialog
+        console.log('Requesting notification permission...');
+        try {
+          const permission = await Notification.requestPermission();
+          console.log('Permission result:', permission);
+          
+          if (permission === 'granted') {
             toast({
-              title: "Permission Required",
-              description: "Please allow notifications when prompted by your browser.",
+              title: "Notifications Enabled! ✅",
+              description: "Great! Notifications are now enabled. Testing notification...",
+            });
+          } else if (permission === 'denied') {
+            toast({
+              title: "Notifications Blocked",
+              description: "You blocked notifications. To enable: click the 🔒 icon in address bar → change notifications to 'Allow' → refresh page.",
               variant: "destructive"
             });
-            return;
+          } else {
+            toast({
+              title: "Permission Not Granted",
+              description: "Notification permission was not granted. Please try again.",
+              variant: "destructive"
+            });
           }
+        } catch (error) {
+          console.error('Error requesting permission:', error);
+          toast({
+            title: "Permission Request Failed",
+            description: "Could not request notification permissions. Please enable them manually in browser settings.",
+            variant: "destructive"
+          });
         }
+      } else {
+        toast({
+          title: "Notifications Not Supported",
+          description: "Your browser doesn't support notifications.",
+          variant: "destructive"
+        });
+        return;
       }
 
+      // Send the test notification (both in-app and system if permitted)
       console.log('Sending test notification...');
       const success = await notificationService.sendTestNotification();
       console.log('Test notification result:', success);
       
       if (success) {
         toast({
-          title: "Test Notification Sent!",
-          description: "You should see a notification from Clean Beats in your system notifications."
+          title: "Test Notification Sent! 🎵",
+          description: "Check your notifications page and system notifications.",
         });
       } else {
         toast({
-          title: "Test Failed",
-          description: "Unable to send test notification. Check if notifications are enabled in your browser.",
+          title: "Partial Success",
+          description: "In-app notification created, but system notification may be blocked.",
           variant: "destructive"
         });
       }
