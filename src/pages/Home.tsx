@@ -44,26 +44,99 @@ const Home = () => {
     initializeNotifications();
 
     // Set up real-time subscription for notifications
-    const channel = supabase
-      .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications'
-        },
-        () => {
-          // Refetch unread count when notifications are updated
-          fetchUnreadNotifications();
-        }
-      )
-      .subscribe();
+    const setupRealtimeNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      console.log('Setting up real-time notifications for user:', user.id);
+      
+      const channel = supabase
+        .channel('notifications-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New notification received:', payload);
+            // Update unread count
+            setUnreadNotifications(prev => prev + 1);
+            
+            // Show system notification if permissions are granted
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const notificationData = payload.new;
+              console.log('Creating system notification:', notificationData);
+              
+              const notification = new Notification(notificationData.title || 'Clean Beats', {
+                body: notificationData.message,
+                icon: '/favicon.ico',
+                tag: `notification-${notificationData.id}`,
+                requireInteraction: false,
+                silent: false
+              });
+              
+              notification.onclick = () => {
+                console.log('System notification clicked');
+                window.focus();
+                navigate('/notifications');
+                notification.close();
+              };
+              
+              notification.onerror = (error) => {
+                console.error('System notification error:', error);
+              };
+              
+              notification.onshow = () => {
+                console.log('System notification shown successfully');
+              };
+              
+              // Auto close after 5 seconds
+              setTimeout(() => {
+                notification.close();
+              }, 5000);
+            } else {
+              console.log('System notifications not available or not permitted');
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Notification updated:', payload);
+            // If notification was marked as read, decrease unread count
+            if (payload.old.read === false && payload.new.read === true) {
+              setUnreadNotifications(prev => Math.max(0, prev - 1));
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Notifications realtime status:', status);
+        });
+
+      return channel;
+    };
+
+    // Setup realtime and cleanup
+    let channel: any = null;
+    setupRealtimeNotifications().then(ch => {
+      channel = ch;
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
-  }, []);
+  }, [navigate]);
 
   const initializeNotifications = async () => {
     await notificationService.initializePushNotifications();
