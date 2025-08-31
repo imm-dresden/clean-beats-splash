@@ -471,6 +471,17 @@ export type Database = {
           username: string
         }[]
       }
+      get_global_top_streaks: {
+        Args: { p_limit?: number }
+        Returns: {
+          avatar_url: string
+          best_streak: number
+          display_name: string
+          equipment_name: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_public_profile: {
         Args: { profile_user_id: string }
         Returns: {

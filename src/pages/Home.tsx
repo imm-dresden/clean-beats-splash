@@ -179,10 +179,9 @@ const Home = () => {
         setBestEquipment(equipment[0]);
       }
 
-      // Get top streaks from following/followers (includes user)
+      // Get global top streaks from all users
       const { data: streaks } = await supabase
-        .rpc('get_following_top_streaks', { 
-          p_user_id: user.id, 
+        .rpc('get_global_top_streaks', { 
           p_limit: 5 
         });
 
