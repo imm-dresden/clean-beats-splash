@@ -1,4 +1,4 @@
-import { Settings, Music, Bell, Users, Calendar, Wrench, TrendingUp, Trophy, Flame, Crown, User } from "lucide-react";
+import { Settings, Music, Bell, Users, Calendar, Headphones, TrendingUp, Trophy, Flame, Crown, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -349,7 +349,7 @@ const Home = () => {
     {
       title: "Equipment",
       description: "Manage your gear",
-      icon: Wrench,
+      icon: Headphones,
       route: "/equipment", 
       color: "text-green-500"
     },

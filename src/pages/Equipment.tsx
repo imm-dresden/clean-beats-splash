@@ -738,16 +738,16 @@ const Equipment = () => {
     <div className="min-h-screen bg-background text-foreground gradient-hero p-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <Music className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Equipment Management</h1>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Music className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
+            <h1 className="text-xl sm:text-3xl font-bold">Equipment Management</h1>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4" />
-                Add Equipment
+                <span className="sm:inline">Add Equipment</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
