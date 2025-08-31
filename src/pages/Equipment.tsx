@@ -471,20 +471,15 @@ const Equipment = () => {
 
       if (error) throw error;
 
-      // Update the equipment with new cleaning date
-      const updatedEquipment = equipment.map(item => 
-        item.id === selectedEquipment.id 
-          ? { ...item, last_cleaned_at: cleanedAt, next_cleaning_due: nextDue.toISOString() }
-          : item
-      );
-      setEquipment(updatedEquipment);
+      // Refresh equipment data to get updated streaks from database
+      await fetchEquipment();
 
       // Schedule new notification if notifications are enabled
-      const updatedItem = updatedEquipment.find(item => item.id === selectedEquipment.id);
-      if (updatedItem?.notifications_enabled && nextDue) {
+      const equipmentItem = equipment.find(item => item.id === selectedEquipment.id);
+      if (equipmentItem?.notifications_enabled && nextDue) {
         await notificationService.scheduleCleaningNotification({
-          equipmentId: updatedItem.id,
-          equipmentName: updatedItem.name,
+          equipmentId: equipmentItem.id,
+          equipmentName: equipmentItem.name,
           nextCleaningDue: nextDue.toISOString()
         });
       }
