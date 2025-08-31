@@ -70,18 +70,33 @@ const Home = () => {
   };
 
   const handleTestNotification = async () => {
+    console.log('Test notification button clicked');
+    
     try {
+      // First check current permission status
+      if ('Notification' in window) {
+        console.log('Current notification permission:', Notification.permission);
+      }
+      
+      // Request permissions
+      console.log('Requesting notification permissions...');
       const hasPermission = await notificationService.requestPermissions();
+      console.log('Permission result:', hasPermission);
+      
       if (!hasPermission) {
+        console.log('Permission denied, showing toast...');
         toast({
           title: "Permission Required",
-          description: "Please enable notifications to test this feature.",
+          description: "Please enable notifications to test this feature. Check your browser settings if the prompt didn't appear.",
           variant: "destructive"
         });
         return;
       }
 
+      console.log('Permission granted, sending test notification...');
       const success = await notificationService.sendTestNotification();
+      console.log('Test notification result:', success);
+      
       if (success) {
         toast({
           title: "Test Notification Sent!",
@@ -90,14 +105,15 @@ const Home = () => {
       } else {
         toast({
           title: "Test Failed",
-          description: "Unable to send test notification.",
+          description: "Unable to send test notification. Check console for details.",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error('Error in handleTestNotification:', error);
       toast({
         title: "Error",
-        description: "Failed to send test notification.",
+        description: `Failed to send test notification: ${error}`,
         variant: "destructive"
       });
     }

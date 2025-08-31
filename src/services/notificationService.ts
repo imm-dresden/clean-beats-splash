@@ -16,11 +16,17 @@ class NotificationService {
   async initializeServiceWorker() {
     if (!this.isNative && 'serviceWorker' in navigator) {
       try {
+        console.log('Attempting to register service worker...');
         this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully');
+        console.log('Service Worker registered successfully:', this.serviceWorkerRegistration);
+        
+        // Wait for service worker to be ready
+        await navigator.serviceWorker.ready;
+        console.log('Service Worker is ready');
         
         // Listen for messages from service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
+          console.log('Message from service worker:', event.data);
           if (event.data.type === 'MARK_EQUIPMENT_CLEANED') {
             // Handle equipment marking logic here
             this.handleEquipmentCleaned(event.data.equipmentId);
@@ -28,7 +34,10 @@ class NotificationService {
         });
       } catch (error) {
         console.error('Service Worker registration failed:', error);
+        // Continue without service worker
       }
+    } else {
+      console.log('Service worker not supported or running on native platform');
     }
   }
 
@@ -116,9 +125,14 @@ class NotificationService {
     }
   }
 
-  async sendTestNotification() {
+  async sendTestNotification(): Promise<boolean> {
+    console.log('Sending test notification...');
+    console.log('Is native platform:', this.isNative);
+    console.log('Service worker registration:', this.serviceWorkerRegistration);
+    
     if (this.isNative) {
       try {
+        console.log('Attempting to schedule native notification...');
         await LocalNotifications.schedule({
           notifications: [
             {
@@ -133,21 +147,41 @@ class NotificationService {
             }
           ]
         });
+        console.log('Native notification scheduled successfully');
         return true;
       } catch (error) {
-        console.error('Error sending test notification:', error);
+        console.error('Error sending native test notification:', error);
         return false;
       }
     } else {
       // Web test notification
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Test Notification', {
-          body: 'This is a test notification from Clean Beats!',
-          icon: '/favicon.ico'
-        });
-        return true;
+      console.log('Attempting web notification...');
+      console.log('Notification permission:', Notification.permission);
+      
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          console.log('Creating web notification...');
+          const notification = new Notification('Test Notification', {
+            body: 'This is a test notification from Clean Beats!',
+            icon: '/favicon.ico',
+            tag: 'test-notification'
+          });
+          
+          notification.onclick = () => {
+            console.log('Test notification clicked');
+            notification.close();
+          };
+          
+          console.log('Web notification created successfully');
+          return true;
+        } else {
+          console.log('Notification permission not granted. Current status:', Notification.permission);
+          return false;
+        }
+      } else {
+        console.log('Notifications not supported in this browser');
+        return false;
       }
-      return false;
     }
   }
 

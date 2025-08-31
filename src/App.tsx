@@ -50,20 +50,30 @@ const AppContent = () => {
 const App = () => {
   useEffect(() => {
     const initializeNotifications = async () => {
-      console.log('Initializing notifications...');
+      console.log('App: Initializing notifications...');
       
-      // Initialize service worker first
-      await notificationService.initializeServiceWorker();
-      
-      // Wait a bit for service worker to be ready, then request permissions
-      setTimeout(async () => {
-        const permissionGranted = await notificationService.requestPermissions();
-        console.log('Notification permissions granted:', permissionGranted);
+      try {
+        // Initialize service worker first
+        await notificationService.initializeServiceWorker();
+        console.log('App: Service worker initialized');
         
-        if (permissionGranted) {
-          await notificationService.initializePushNotifications();
-        }
-      }, 1000);
+        // Wait a bit for service worker to be ready, then request permissions
+        setTimeout(async () => {
+          console.log('App: Requesting notification permissions...');
+          const permissionGranted = await notificationService.requestPermissions();
+          console.log('App: Notification permissions granted:', permissionGranted);
+          
+          if (permissionGranted) {
+            console.log('App: Initializing push notifications...');
+            await notificationService.initializePushNotifications();
+            console.log('App: Push notifications initialized');
+          } else {
+            console.log('App: Skipping push notification initialization - permissions not granted');
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('App: Error initializing notifications:', error);
+      }
     };
     
     initializeNotifications();
