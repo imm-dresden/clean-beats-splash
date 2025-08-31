@@ -25,23 +25,21 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('Starting scheduled cleaning reminders check...');
+    console.log('Starting timezone-aware cleaning reminders check...');
     
     const { reminderType = 'noon', checkHour = false } = await req.json();
     console.log('Reminder type:', reminderType, 'Check hour:', checkHour);
 
     // Get current time in UTC
     const now = new Date();
+    const currentUTCHour = now.getUTCHours();
+    const currentUTCMinute = now.getUTCMinutes();
     
-    // If checkHour is true, we need to find users whose local time matches the target time
-    if (checkHour) {
-      // For noon reminders, check for users where it's currently 12:00 PM in their timezone
-      // For evening reminders, check for users where it's currently 11:30 PM in their timezone
-      const targetHour = reminderType === 'noon' ? 12 : 23;
-      const targetMinute = reminderType === 'noon' ? 0 : 30;
-      
-      console.log(`Looking for users where local time is ${targetHour}:${String(targetMinute).padStart(2, '0')}`);
-    }
+    console.log(`Current UTC time: ${currentUTCHour}:${currentUTCMinute.toString().padStart(2, '0')}`);
+
+    // Target times for reminders
+    const targetHour = reminderType === 'noon' ? 12 : 23;
+    const targetMinute = reminderType === 'noon' ? 0 : 30;
 
     // Fetch equipment that needs cleaning reminders
     const { data: overdueEquipment, error: equipmentError } = await supabase
@@ -112,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const remindersToSend: CleaningReminder[] = [];
 
-    // Process each piece of equipment
+    // Process each piece of equipment with timezone awareness
     for (const equipment of overdueEquipment) {
       const profile = userProfiles.get(equipment.user_id);
       if (!profile || !profile.email) {
@@ -122,49 +120,51 @@ const handler = async (req: Request): Promise<Response> => {
 
       const userTimezone = userTimezones.get(equipment.user_id) || 'UTC';
       
-      // Calculate days overdue
-      const dueDate = new Date(equipment.next_cleaning_due);
-      const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Calculate what time it is locally for this user
+      try {
+        // Create a date object in the user's timezone
+        const utcTime = new Date();
+        const userTime = new Date(utcTime.toLocaleString("en-US", {timeZone: userTimezone}));
+        const userHour = userTime.getHours();
+        const userMinute = userTime.getMinutes();
+        
+        console.log(`User ${equipment.user_id} (${userTimezone}): Local time is ${userHour}:${userMinute.toString().padStart(2, '0')}, target is ${targetHour}:${targetMinute.toString().padStart(2, '0')}`);
+        
+        // Only send reminder if it's within 30 minutes of the target time for this user
+        const isCorrectHour = userHour === targetHour;
+        const isCorrectMinute = Math.abs(userMinute - targetMinute) <= 30;
+        
+        if (isCorrectHour && isCorrectMinute) {
+          // Calculate days overdue
+          const dueDate = new Date(equipment.next_cleaning_due);
+          const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      // If checkHour is true, verify it's the right time in user's timezone
-      if (checkHour) {
-        try {
-          // Get current time in user's timezone
-          const userLocalTime = new Intl.DateTimeFormat('en-US', {
-            timeZone: userTimezone,
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: false
-          }).formatToParts(now);
+          remindersToSend.push({
+            userId: equipment.user_id,
+            email: profile.email,
+            equipmentName: equipment.name,
+            daysOverdue,
+            timezone: userTimezone
+          });
           
-          const userHour = parseInt(userLocalTime.find(part => part.type === 'hour')?.value || '0');
-          const userMinute = parseInt(userLocalTime.find(part => part.type === 'minute')?.value || '0');
-          
-          const targetHour = reminderType === 'noon' ? 12 : 23;
-          const targetMinute = reminderType === 'noon' ? 0 : 30;
-          
-          // Check if current time matches target time (within 1 hour window)
-          const timeMatches = userHour === targetHour && Math.abs(userMinute - targetMinute) <= 30;
-          
-          if (!timeMatches) {
-            console.log(`Skipping ${equipment.user_id} - wrong time (${userHour}:${userMinute} in ${userTimezone})`);
-            continue;
-          }
-          
-          console.log(`Time matches for ${equipment.user_id} - ${userHour}:${userMinute} in ${userTimezone}`);
-        } catch (error) {
-          console.error(`Error checking timezone for ${equipment.user_id}:`, error);
-          // Continue without timezone check on error
+          console.log(`Added reminder for user ${equipment.user_id} - ${equipment.name} (${daysOverdue} days overdue)`);
+        } else {
+          console.log(`Skipped user ${equipment.user_id} - not the right time (hour: ${isCorrectHour}, minute: ${isCorrectMinute})`);
         }
+      } catch (timezoneError) {
+        console.error(`Error calculating time for timezone ${userTimezone}:`, timezoneError);
+        // If timezone calculation fails, send reminder anyway (better safe than sorry)
+        const dueDate = new Date(equipment.next_cleaning_due);
+        const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        remindersToSend.push({
+          userId: equipment.user_id,
+          email: profile.email,
+          equipmentName: equipment.name,
+          daysOverdue,
+          timezone: userTimezone
+        });
       }
-      
-      remindersToSend.push({
-        userId: equipment.user_id,
-        email: profile.email,
-        equipmentName: equipment.name,
-        daysOverdue,
-        timezone: userTimezone
-      });
     }
 
     console.log(`Preparing to send ${remindersToSend.length} reminders`);
@@ -181,15 +181,16 @@ const handler = async (req: Request): Promise<Response> => {
           .insert({
             user_id: reminder.userId,
             type: 'cleaning_reminder',
-            title: 'Cleaning Reminder',
+            title: '🧽 Cleaning Reminder',
             message: reminder.daysOverdue > 0 
-              ? `Your ${reminder.equipmentName} is ${reminder.daysOverdue} days overdue for cleaning!`
-              : `Time to clean your ${reminder.equipmentName}`,
+              ? `Your ${reminder.equipmentName} is ${reminder.daysOverdue} day${reminder.daysOverdue > 1 ? 's' : ''} overdue for cleaning!`
+              : `Time to clean your ${reminder.equipmentName} ✨`,
             data: {
               equipment_name: reminder.equipmentName,
               days_overdue: reminder.daysOverdue,
               reminder_type: reminderType,
-              scheduled_time: now.toISOString()
+              scheduled_time: now.toISOString(),
+              user_timezone: reminder.timezone
             }
           });
 
@@ -214,7 +215,9 @@ const handler = async (req: Request): Promise<Response> => {
       remindersScheduled: successCount,
       errors: errorCount,
       reminderType,
-      timestamp: now.toISOString()
+      timestamp: now.toISOString(),
+      utcTime: `${currentUTCHour}:${currentUTCMinute.toString().padStart(2, '0')}`,
+      targetTime: `${targetHour}:${targetMinute.toString().padStart(2, '0')}`
     }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
