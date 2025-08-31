@@ -903,11 +903,31 @@ const Equipment = () => {
         </div>
 
         <Tabs defaultValue="musical-equipment" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="musical-equipment">Musical Equipment</TabsTrigger>
-            <TabsTrigger value="cleaning-equipment">Cleaning Equipment</TabsTrigger>
-            <TabsTrigger value="schedule">Cleaning Schedule</TabsTrigger>
-            <TabsTrigger value="history">Cleaning History</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto p-1">
+            <TabsTrigger 
+              value="musical-equipment" 
+              className="text-xs sm:text-sm px-2 py-2 whitespace-nowrap"
+            >
+              Musical
+            </TabsTrigger>
+            <TabsTrigger 
+              value="cleaning-equipment" 
+              className="text-xs sm:text-sm px-2 py-2 whitespace-nowrap"
+            >
+              Cleaning
+            </TabsTrigger>
+            <TabsTrigger 
+              value="schedule" 
+              className="text-xs sm:text-sm px-2 py-2 whitespace-nowrap"
+            >
+              Schedule
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="text-xs sm:text-sm px-2 py-2 whitespace-nowrap"
+            >
+              History
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="musical-equipment">
