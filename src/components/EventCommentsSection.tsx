@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Reply, Trash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -12,11 +12,13 @@ interface Comment {
   content: string;
   created_at: string;
   user_id: string;
+  parent_comment_id?: string;
   author?: {
     display_name?: string;
     username: string;
     avatar_url?: string;
   };
+  replies?: Comment[];
 }
 
 interface EventCommentsSectionProps {
@@ -28,17 +30,26 @@ interface EventCommentsSectionProps {
 const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectionProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [commentsCount, setCommentsCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    getCurrentUser();
     if (isOpen) {
       fetchComments();
     } else {
       fetchCommentsCount();
     }
   }, [eventId, isOpen]);
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+  };
 
   const fetchCommentsCount = async () => {
     try {
@@ -63,23 +74,46 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
 
       if (error) throw error;
 
-      // Get author profiles for each comment
-      const commentsWithAuthors = await Promise.all(
-        (commentsData || []).map(async (comment) => {
-          const { data: profileData } = await supabase
-            .rpc('get_public_profile', { profile_user_id: comment.user_id });
-          
-          const authorProfile = profileData && profileData.length > 0 ? profileData[0] : null;
+      // Get unique user IDs from comments
+      const userIds = [...new Set(commentsData?.map(comment => comment.user_id) || [])];
+      
+      // Fetch profiles for all comment authors using secure function
+      const { data: profilesData } = await supabase
+        .rpc('get_public_profiles', { profile_user_ids: userIds });
 
-          return {
-            ...comment,
-            author: authorProfile
-          };
-        })
-      );
+      // Create a map for quick lookup
+      const profileMap = new Map(profilesData?.map(profile => [profile.user_id, profile]) || []);
 
-      setComments(commentsWithAuthors);
-      setCommentsCount(commentsWithAuthors.length);
+      const commentsWithAuthor = commentsData?.map(comment => ({
+        ...comment,
+        author: profileMap.get(comment.user_id) || { username: 'Unknown User' }
+      })) || [];
+
+      // Organize comments into threaded structure
+      const topLevelComments: Comment[] = [];
+      const repliesMap = new Map<string, Comment[]>();
+
+      commentsWithAuthor.forEach(comment => {
+        if (comment.parent_comment_id) {
+          // This is a reply
+          if (!repliesMap.has(comment.parent_comment_id)) {
+            repliesMap.set(comment.parent_comment_id, []);
+          }
+          repliesMap.get(comment.parent_comment_id)!.push(comment);
+        } else {
+          // This is a top-level comment
+          topLevelComments.push(comment);
+        }
+      });
+
+      // Attach replies to their parent comments
+      const threaded = topLevelComments.map(comment => ({
+        ...comment,
+        replies: repliesMap.get(comment.id) || []
+      }));
+
+      setComments(threaded);
+      setCommentsCount(commentsWithAuthor.length);
     } catch (error) {
       console.error('Error fetching comments:', error);
       toast({
@@ -91,18 +125,15 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
   };
 
   const handleSubmitComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !currentUser) return;
 
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { error } = await supabase
         .from('event_comments')
         .insert({
           event_id: eventId,
-          user_id: user.id,
+          user_id: currentUser.id,
           content: newComment.trim()
         });
 
@@ -124,6 +155,66 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitReply = async (parentCommentId: string) => {
+    if (!replyContent.trim() || !currentUser) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('event_comments')
+        .insert({
+          event_id: eventId,
+          user_id: currentUser.id,
+          content: replyContent.trim(),
+          parent_comment_id: parentCommentId
+        });
+
+      if (error) throw error;
+
+      setReplyContent("");
+      setReplyingTo(null);
+      await fetchComments();
+      
+      toast({
+        title: "Success",
+        description: "Reply added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding reply:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add reply",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('event_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      fetchComments();
+      
+      toast({
+        title: "Success",
+        description: "Comment deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete comment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -170,36 +261,144 @@ const EventCommentsSection = ({ eventId, isOpen, onToggle }: EventCommentsSectio
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {comments.length > 0 ? (
               comments.map((comment) => (
-                <Card key={comment.id} className="bg-muted/30">
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {comment.author?.avatar_url ? (
-                          <img 
-                            src={comment.author.avatar_url} 
-                            alt="Profile" 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs font-medium">
-                            {(comment.author?.display_name || comment.author?.username || 'U')[0].toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium">
-                            {comment.author?.display_name || comment.author?.username || 'Unknown User'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(comment.created_at), 'MMM d, h:mm a')}
-                          </p>
+                <div key={comment.id} className="space-y-2">
+                  {/* Main Comment */}
+                  <Card className="bg-muted/30">
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 bg-accent/20 rounded-full flex items-center justify-center overflow-hidden">
+                            {comment.author?.avatar_url ? (
+                              <img 
+                                src={comment.author.avatar_url} 
+                                alt="Profile" 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs font-medium">
+                                {(comment.author?.display_name || comment.author?.username || 'U')[0].toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium">
+                              {comment.author?.display_name || comment.author?.username}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {format(new Date(comment.created_at), 'MMM d, h:mm a')}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-foreground break-words">{comment.content}</p>
+                        
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setReplyingTo(comment.id)}
+                          >
+                            <Reply className="w-3 h-3 mr-1" />
+                            Reply
+                          </Button>
+                          {comment.user_id === currentUser?.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2"
+                              onClick={() => handleDeleteComment(comment.id)}
+                            >
+                              <Trash className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
+                      <p className="text-sm mb-2">{comment.content}</p>
+                      
+                      {/* Reply Form */}
+                      {replyingTo === comment.id && (
+                        <div className="mt-3 space-y-2">
+                          <Textarea
+                            placeholder="Write a reply..."
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            className="min-h-[60px] resize-none text-sm"
+                            rows={2}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost"
+                              size="sm" 
+                              onClick={() => {
+                                setReplyingTo(null);
+                                setReplyContent("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleSubmitReply(comment.id)}
+                              disabled={!replyContent.trim() || loading}
+                              className="gap-2"
+                            >
+                              <Send className="w-3 h-3" />
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Replies */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="ml-6 space-y-2">
+                      {comment.replies.map((reply) => (
+                        <Card key={reply.id} className="bg-muted/20">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 bg-accent/20 rounded-full flex items-center justify-center overflow-hidden">
+                                  {reply.author?.avatar_url ? (
+                                    <img 
+                                      src={reply.author.avatar_url} 
+                                      alt="Profile" 
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-medium">
+                                      {(reply.author?.display_name || reply.author?.username || 'U')[0].toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="text-sm font-medium">
+                                    {reply.author?.display_name || reply.author?.username}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground ml-2">
+                                    {format(new Date(reply.created_at), 'MMM d, h:mm a')}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {reply.user_id === currentUser?.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => handleDeleteComment(reply.id)}
+                                >
+                                  <Trash className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                            <p className="text-sm">{reply.content}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+                </div>
               ))
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">
