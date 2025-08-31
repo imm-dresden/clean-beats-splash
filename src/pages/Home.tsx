@@ -65,40 +65,45 @@ const Home = () => {
             // Update unread count
             setUnreadNotifications(prev => prev + 1);
             
-            // Show system notification if permissions are granted
+            // Show desktop notification if permissions are granted
             if ('Notification' in window && Notification.permission === 'granted') {
               const notificationData = payload.new;
-              console.log('Creating system notification:', notificationData);
+              console.log('Creating desktop notification:', notificationData);
               
-              const notification = new Notification(notificationData.title || 'Clean Beats', {
+              const notification = new Notification(notificationData.title || 'Clean Beats 🎵', {
                 body: notificationData.message,
                 icon: '/favicon.ico',
                 tag: `notification-${notificationData.id}`,
-                requireInteraction: false,
-                silent: false
+                requireInteraction: true, // Keeps notification visible until user interacts
+                silent: false,
+                badge: '/favicon.ico'
               });
               
               notification.onclick = () => {
-                console.log('System notification clicked');
+                console.log('Desktop notification clicked');
                 window.focus();
                 navigate('/notifications');
                 notification.close();
               };
               
               notification.onerror = (error) => {
-                console.error('System notification error:', error);
+                console.error('Desktop notification error:', error);
               };
               
               notification.onshow = () => {
-                console.log('System notification shown successfully');
+                console.log('Desktop notification shown successfully');
               };
               
-              // Auto close after 5 seconds
+              notification.onclose = () => {
+                console.log('Desktop notification closed');
+              };
+              
+              // Auto close after 8 seconds for better visibility
               setTimeout(() => {
                 notification.close();
-              }, 5000);
+              }, 8000);
             } else {
-              console.log('System notifications not available or not permitted');
+              console.log('Desktop notifications not available or not permitted');
             }
           }
         )
