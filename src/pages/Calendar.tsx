@@ -348,19 +348,19 @@ const Calendar = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground gradient-hero p-4">
+    <div className="min-h-screen bg-background text-foreground gradient-hero p-2 sm:p-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <CalendarIcon className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold">Calendar</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
+            <h1 className="text-xl sm:text-3xl font-bold">Calendar</h1>
           </div>
           <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
             <DialogTrigger asChild>
-              <Button onClick={() => openEventDialog()}>
+              <Button onClick={() => openEventDialog()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Event
+                <span className="sm:inline">Add Event</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
@@ -478,13 +478,13 @@ const Calendar = () => {
           </Dialog>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Calendar View */}
           <div className="lg:col-span-2">
             <Card className="glass-card">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                  <CardTitle className="text-base sm:text-xl">
                     {format(currentDate, 'MMMM yyyy')}
                   </CardTitle>
                   <div className="flex gap-2">
@@ -507,15 +507,16 @@ const Calendar = () => {
               </CardHeader>
               <CardContent>
                 {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-1 mb-4">
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2 sm:mb-4">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
-                      {day}
+                    <div key={day} className="p-1 sm:p-2 text-center text-xs sm:text-sm font-medium text-muted-foreground">
+                      <span className="hidden sm:inline">{day}</span>
+                      <span className="sm:hidden">{day.slice(0, 1)}</span>
                     </div>
                   ))}
                 </div>
                 
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                   {getDaysInMonth().map(day => {
                     const dayData = getEventsForDate(day);
                     const hasCleaningEvents = dayData.cleaningEvents.length > 0;
@@ -529,39 +530,39 @@ const Calendar = () => {
                         key={day.toISOString()}
                         onClick={() => setSelectedDate(day)}
                         className={`
-                          min-h-[60px] p-1 text-sm border rounded-lg transition-colors
+                          min-h-[40px] sm:min-h-[60px] p-0.5 sm:p-1 text-xs sm:text-sm border rounded-lg transition-colors
                           ${isSameMonth(day, currentDate) ? 'text-foreground' : 'text-muted-foreground'}
                           ${isToday(day) ? 'bg-accent text-accent-foreground font-bold' : ''}
-                          ${selectedDate && isSameDay(day, selectedDate) ? 'ring-2 ring-primary' : ''}
+                          ${selectedDate && isSameDay(day, selectedDate) ? 'ring-1 sm:ring-2 ring-primary' : ''}
                           ${hasAnyEvents && !isToday(day) ? 'bg-primary/10' : ''}
                           ${hasOverdue ? 'bg-destructive/20 border-destructive' : ''}
                           ${hasDueToday ? 'bg-yellow-500/20 border-yellow-500' : ''}
                           hover:bg-muted
                         `}
                       >
-                        <div className="font-medium">{format(day, 'd')}</div>
+                        <div className="font-medium text-xs sm:text-sm">{format(day, 'd')}</div>
                         {hasAnyEvents && (
-                          <div className="flex flex-wrap gap-0.5 mt-1">
+                          <div className="flex flex-wrap gap-0.5 mt-0.5 sm:mt-1 justify-center">
                             {/* Cleaning events */}
-                            {dayData.cleaningEvents.slice(0, 2).map((event, idx) => (
+                            {dayData.cleaningEvents.slice(0, 1).map((event, idx) => (
                               <div 
                                 key={`cleaning-${idx}`} 
                                 className={`
-                                  w-1.5 h-1.5 rounded-full
+                                  w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full
                                   ${event.isOverdue ? 'bg-destructive' : 
                                     event.isDueToday ? 'bg-yellow-500' : 'bg-primary'}
                                 `}
                               />
                             ))}
                             {/* Regular events */}
-                            {dayData.events.slice(0, 2).map((event, idx) => (
+                            {dayData.events.slice(0, 1).map((event, idx) => (
                               <div 
                                 key={`event-${idx}`} 
-                                className="w-1.5 h-1.5 rounded-full bg-accent"
+                                className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-accent"
                               />
                             ))}
-                            {(dayData.cleaningEvents.length + dayData.events.length) > 2 && (
-                              <div className="text-xs">+{(dayData.cleaningEvents.length + dayData.events.length) - 2}</div>
+                            {(dayData.cleaningEvents.length + dayData.events.length) > 1 && (
+                              <div className="text-[8px] sm:text-xs leading-none">+{(dayData.cleaningEvents.length + dayData.events.length) - 1}</div>
                             )}
                           </div>
                         )}
@@ -574,13 +575,13 @@ const Calendar = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Selected Date Events */}
             {selectedDate && (
               <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-sm sm:text-lg">
+                    {format(selectedDate, 'EEE, MMM d, yyyy')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -592,20 +593,20 @@ const Calendar = () => {
                       <div className="space-y-4">
                         {/* Regular Events */}
                         {dayData.events.length > 0 && (
-                          <div className="space-y-3">
-                            <h4 className="font-medium text-sm text-muted-foreground">Events</h4>
+                          <div className="space-y-2 sm:space-y-3">
+                            <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">Events</h4>
                             {dayData.events.map((event) => (
                               <div
                                 key={event.id}
-                                className="p-3 rounded-lg border bg-accent/10 border-accent"
+                                className="p-2 sm:p-3 rounded-lg border bg-accent/10 border-accent"
                               >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex items-start gap-2 flex-1">
-                                    <span className="text-lg">
-                                      {eventTypeIcons[event.event_type as keyof typeof eventTypeIcons] || "📅"}
-                                    </span>
-                                    <div className="flex-1">
-                                      <div className="font-medium">{event.title}</div>
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-1 sm:gap-2 flex-1">
+                                      <span className="text-sm sm:text-lg">
+                                        {eventTypeIcons[event.event_type as keyof typeof eventTypeIcons] || "📅"}
+                                      </span>
+                                      <div className="flex-1">
+                                        <div className="font-medium text-sm sm:text-base">{event.title}</div>
                                       <div className="text-sm text-muted-foreground capitalize">
                                         {event.event_type}
                                       </div>
@@ -650,24 +651,24 @@ const Calendar = () => {
                         
                         {/* Cleaning Events */}
                         {dayData.cleaningEvents.length > 0 && (
-                          <div className="space-y-3">
-                            <h4 className="font-medium text-sm text-muted-foreground">Equipment Cleaning</h4>
+                          <div className="space-y-2 sm:space-y-3">
+                            <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">Equipment Cleaning</h4>
                             {dayData.cleaningEvents.map((event) => (
                         <div
                           key={event.id}
                           className={`
-                            p-3 rounded-lg border
+                            p-2 sm:p-3 rounded-lg border
                             ${event.isOverdue ? 'bg-destructive/10 border-destructive' : 
                               event.isDueToday ? 'bg-yellow-500/10 border-yellow-500' : 'bg-primary/10 border-primary'}
                           `}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <span className="text-sm sm:text-lg">
                               {equipmentIcons[event.equipmentType as keyof typeof equipmentIcons] || event.equipmentIcon || "🎵"}
                             </span>
                             <div className="flex-1">
-                              <div className="font-medium">{event.equipmentName}</div>
-                              <div className="text-sm text-muted-foreground capitalize">
+                              <div className="font-medium text-sm sm:text-base">{event.equipmentName}</div>
+                              <div className="text-xs sm:text-sm text-muted-foreground capitalize">
                                 {event.equipmentType}
                               </div>
                             </div>
@@ -711,7 +712,7 @@ const Calendar = () => {
             {/* Monthly Summary */}
             <Card className="glass-card">
               <CardHeader>
-                <CardTitle className="text-lg">This Month</CardTitle>
+                <CardTitle className="text-sm sm:text-lg">This Month</CardTitle>
               </CardHeader>
               <CardContent>
                 {(() => {
@@ -797,7 +798,7 @@ const Calendar = () => {
             {/* Quick Stats */}
             <Card className="glass-card">
               <CardHeader>
-                <CardTitle className="text-lg">Quick Stats</CardTitle>
+                <CardTitle className="text-sm sm:text-lg">Quick Stats</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
