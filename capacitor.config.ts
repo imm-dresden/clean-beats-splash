@@ -18,13 +18,11 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: true
     },
-    PushNotifications: {
-      presentationOptions: ["badge", "sound", "alert"]
-    },
-    LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#488AFF",
-      sound: "beep.wav"
+    FirebaseMessaging: {
+      presentationOptions: ["badge", "sound", "alert"],
+      androidChannelId: "clean_beats_notifications",
+      androidChannelName: "Clean Beats Notifications",
+      androidChannelDescription: "Notifications for equipment cleaning reminders and app updates"
     }
   },
   android: {

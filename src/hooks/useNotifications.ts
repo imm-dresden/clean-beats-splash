@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { fcmService } from '@/services/fcmService';
 
 export const useNotifications = () => {
   const [hasPermission, setHasPermission] = useState(false);
@@ -10,9 +9,34 @@ export const useNotifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    checkPermissions();
+    initializeNotifications();
     detectTimezone();
   }, []);
+
+  const initializeNotifications = async () => {
+    try {
+      // Initialize FCM service
+      const initialized = await fcmService.initialize();
+      if (initialized) {
+        // Check existing permissions
+        const hasPerms = await checkPermissions();
+        setHasPermission(hasPerms);
+
+        // Register token if user is logged in and has permissions
+        if (hasPerms) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const token = await fcmService.getRegistrationToken();
+            if (token) {
+              await fcmService.saveTokenToDatabase(token, user.id);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing notifications:', error);
+    }
+  };
 
   const detectTimezone = () => {
     try {
@@ -48,111 +72,154 @@ export const useNotifications = () => {
 
   const checkPermissions = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Mobile platform - use Capacitor
-        const result = await LocalNotifications.checkPermissions();
-        setHasPermission(result.display === 'granted');
-      } else {
-        // Web platform - use browser API
-        if ('Notification' in window) {
-          setHasPermission(Notification.permission === 'granted');
-        }
+      // Initialize FCM service if not already done
+      const initialized = await fcmService.initialize();
+      if (!initialized) {
+        setHasPermission(false);
+        return false;
       }
+
+      // Check if we can get a token (indicates permissions are granted)
+      const token = await fcmService.getRegistrationToken();
+      const hasPerms = !!token;
+      setHasPermission(hasPerms);
+      return hasPerms;
     } catch (error) {
-      console.error('Error checking notification permissions:', error);
+      console.error('Error checking FCM permissions:', error);
+      setHasPermission(false);
+      return false;
     }
   };
 
   const requestPermissions = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Mobile platform
-        const result = await LocalNotifications.requestPermissions();
-        const granted = result.display === 'granted';
-        setHasPermission(granted);
-        
-        if (granted) {
+      // Initialize FCM service first
+      const initialized = await fcmService.initialize();
+      if (!initialized) {
+        toast({
+          title: "Error",
+          description: "Failed to initialize notification service",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Request permissions
+      const permissionGranted = await fcmService.requestPermissions();
+      if (!permissionGranted) {
+        toast({
+          title: "Notifications Disabled",
+          description: "Enable notifications in settings to receive cleaning reminders",
+          variant: "destructive",
+        });
+        setHasPermission(false);
+        return false;
+      }
+
+      // Get registration token
+      const token = await fcmService.getRegistrationToken();
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Failed to get notification token",
+          variant: "destructive",
+        });
+        setHasPermission(false);
+        return false;
+      }
+
+      // Save token to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const tokenSaved = await fcmService.saveTokenToDatabase(token, user.id);
+        if (!tokenSaved) {
           toast({
-            title: "Notifications Enabled",
-            description: "You'll receive cleaning reminders at 12 PM and 11:30 PM",
-          });
-        } else {
-          toast({
-            title: "Notifications Disabled",
-            description: "Enable notifications in settings to receive cleaning reminders",
+            title: "Error",
+            description: "Failed to register for notifications",
             variant: "destructive",
           });
+          return false;
         }
-        
-        return granted;
-      } else {
-        // Web platform
-        if ('Notification' in window) {
-          const permission = await Notification.requestPermission();
-          const granted = permission === 'granted';
-          setHasPermission(granted);
-          
-          if (granted) {
-            toast({
-              title: "Notifications Enabled",
-              description: "You'll receive cleaning reminders at 12 PM and 11:30 PM in your local time",
-            });
-          } else {
-            toast({
-              title: "Notifications Disabled",
-              description: "Enable notifications in your browser to receive cleaning reminders",
-              variant: "destructive",
-            });
-          }
-          
-          return granted;
-        }
+
+        // Subscribe to cleaning reminders topic
+        await fcmService.subscribeToTopic(`user_${user.id}_cleaning_reminders`);
       }
-      return false;
+
+      setHasPermission(true);
+      toast({
+        title: "Notifications Enabled",
+        description: "You'll receive cleaning reminders and app updates",
+      });
+      return true;
     } catch (error) {
-      console.error('Error requesting notification permissions:', error);
+      console.error('Error requesting FCM permissions:', error);
       toast({
         title: "Error",
-        description: "Failed to request notification permissions",
+        description: "Failed to enable notifications",
         variant: "destructive",
       });
+      setHasPermission(false);
       return false;
     }
   };
 
   const showNotification = async (title: string, body: string, data?: any) => {
-    if (!hasPermission) {
-      console.log('No notification permission');
+    const hasPerms = await checkPermissions();
+    if (!hasPerms) {
+      console.log('No notification permissions, skipping notification');
       return;
     }
 
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Mobile notification
-        await LocalNotifications.schedule({
-          notifications: [
-            {
-              title,
-              body,
-              id: Date.now(),
-              schedule: { at: new Date(Date.now() + 1000) }, // 1 second delay
-              extra: data,
-            },
-          ],
-        });
-      } else {
-        // Web notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(title, {
-            body,
-            icon: '/favicon.ico',
-            data,
-          });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('User not logged in, skipping notification');
+        return;
+      }
+
+      // Send notification via FCM edge function
+      const { error } = await supabase.functions.invoke('send-fcm-notification', {
+        body: {
+          userId: user.id,
+          title,
+          body,
+          data: {
+            type: 'test',
+            ...data
+          }
         }
+      });
+
+      if (error) {
+        console.error('Error sending notification:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send notification",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error showing notification:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send notification",
+        variant: "destructive",
+      });
     }
+  };
+
+  const sendTestNotification = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Must be logged in to send test notification",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return await fcmService.sendTestNotification(user.id);
   };
 
   return {
@@ -161,5 +228,6 @@ export const useNotifications = () => {
     requestPermissions,
     showNotification,
     checkPermissions,
+    sendTestNotification,
   };
 };
