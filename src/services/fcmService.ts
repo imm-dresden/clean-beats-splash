@@ -45,14 +45,30 @@ class FCMService {
   }
 
   private async initializeWeb(): Promise<void> {
+    console.log('FCM: Initializing web platform...');
+    
+    // Check if browser supports notifications
+    if (!('Notification' in window)) {
+      throw new Error('This browser does not support notifications');
+    }
+
+    // Check if service workers are supported
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('This browser does not support service workers');
+    }
+
+    console.log('FCM: Browser supports notifications and service workers');
+    
     this.messaging = await initializeMessaging();
     if (!this.messaging) {
       throw new Error('Firebase Messaging not supported in this browser');
     }
 
+    console.log('FCM: Firebase messaging initialized successfully');
+
     // Set up foreground message listener
     onMessage(this.messaging, (payload) => {
-      console.log('Foreground message received:', payload);
+      console.log('FCM: Foreground message received:', payload);
       this.handleForegroundMessage(payload);
     });
   }
@@ -103,24 +119,76 @@ class FCMService {
   }
 
   async getRegistrationToken(): Promise<string | null> {
+    console.log('FCM: Getting registration token...');
     if (!this.isInitialized) {
+      console.log('FCM: Service not initialized, initializing now...');
       await this.initialize();
     }
 
     try {
       if (this.platform === 'web') {
-        if (!this.messaging) return null;
+        if (!this.messaging) {
+          console.error('FCM: Messaging service not available');
+          return null;
+        }
         
-        const token = await getToken(this.messaging, {
-          vapidKey: 'BH7vUyOsWFl4eqOgNpzM8xtJm6E7iBpOK2V5N4mC8Rj5C2G1Y9wLnP3bX8fM6bN7QK5W2vH9uJ0wR8dF3nG1L4' // You'll need to replace this with your actual VAPID key
-        });
-        return token;
+        console.log('FCM: Requesting token for web platform...');
+        
+        // Check if notifications are supported
+        if (!('Notification' in window)) {
+          console.error('FCM: Notifications not supported in this browser');
+          return null;
+        }
+
+        // Check current permission status
+        const permission = Notification.permission;
+        console.log('FCM: Current notification permission:', permission);
+        
+        if (permission === 'denied') {
+          console.error('FCM: Notification permissions denied');
+          return null;
+        }
+
+        if (permission === 'default') {
+          console.log('FCM: Requesting notification permissions...');
+          const newPermission = await Notification.requestPermission();
+          console.log('FCM: New permission status:', newPermission);
+          
+          if (newPermission !== 'granted') {
+            console.error('FCM: Permissions not granted');
+            return null;
+          }
+        }
+
+        // Try to get token without VAPID key first for testing
+        console.log('FCM: Attempting to get token without VAPID key...');
+        try {
+          const token = await getToken(this.messaging);
+          console.log('FCM: Token received successfully:', token ? 'YES' : 'NO');
+          return token;
+        } catch (vapidError) {
+          console.warn('FCM: Failed without VAPID key, trying with VAPID key...', vapidError);
+          
+          // If that fails, try with VAPID key
+          const token = await getToken(this.messaging, {
+            vapidKey: 'BH7vUyOsWFl4eqOgNpzM8xtJm6E7iBpOK2V5N4mC8Rj5C2G1Y9wLnP3bX8fM6bN7QK5W2vH9uJ0wR8dF3nG1L4'
+          });
+          console.log('FCM: Token with VAPID key received:', token ? 'YES' : 'NO');
+          return token;
+        }
       } else {
+        console.log('FCM: Getting token for native platform...');
         const result = await FirebaseMessaging.getToken();
+        console.log('FCM: Native token received:', result?.token ? 'YES' : 'NO');
         return result.token;
       }
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      console.error('FCM: Error getting registration token:', error);
+      console.error('FCM: Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       return null;
     }
   }

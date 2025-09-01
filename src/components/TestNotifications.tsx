@@ -12,18 +12,24 @@ export const TestNotifications = () => {
   const [user, setUser] = useState<any>(null);
 
   const checkAuthAndToken = async () => {
+    console.log('TestNotifications: Checking auth and token...');
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
+      console.error('TestNotifications: No authenticated user');
       toast.error('Please sign in to test notifications');
       return null;
     }
+    console.log('TestNotifications: User authenticated:', currentUser.id);
     setUser(currentUser);
 
+    console.log('TestNotifications: Getting FCM token...');
     const fcmToken = await fcmService.getRegistrationToken();
     if (!fcmToken) {
-      toast.error('Failed to get FCM token. Please check permissions.');
+      console.error('TestNotifications: Failed to get FCM token');
+      toast.error('Failed to get FCM token. Check console for details.');
       return null;
     }
+    console.log('TestNotifications: FCM token obtained successfully');
     setToken(fcmToken);
     return { user: currentUser, token: fcmToken };
   };

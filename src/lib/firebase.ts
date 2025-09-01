@@ -21,9 +21,14 @@ let messaging: any = null;
 // Check if messaging is supported (web environment)
 export const initializeMessaging = async () => {
   try {
+    console.log('Firebase: Checking messaging support...');
     const supported = await isSupported();
+    console.log('Firebase: Messaging supported:', supported);
+    
     if (supported) {
+      console.log('Firebase: Creating messaging instance...');
       messaging = getMessaging(app);
+      console.log('Firebase: Messaging instance created successfully');
       return messaging;
     }
     console.log('Firebase Messaging is not supported in this environment');
