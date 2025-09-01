@@ -14,6 +14,7 @@ import Calendar from "./pages/Calendar";
 import Community from "./pages/Community";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import TestNotifications from "./pages/TestNotifications";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import BottomNavigation from "./components/BottomNavigation";
@@ -25,7 +26,7 @@ const AppContent = () => {
   const location = useLocation();
   
   // Hide navigation on splash screen, auth page, and settings page
-  const hideNavigation = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/settings';
+  const hideNavigation = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/settings' || location.pathname === '/test-notifications';
 
   return (
     <div className={hideNavigation ? '' : 'pb-16'}>
@@ -40,6 +41,7 @@ const AppContent = () => {
         <Route path="/profile/:userId" element={<Profile />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/test-notifications" element={<TestNotifications />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

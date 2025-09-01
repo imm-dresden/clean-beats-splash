@@ -112,7 +112,7 @@ class FCMService {
         if (!this.messaging) return null;
         
         const token = await getToken(this.messaging, {
-          vapidKey: 'BOjW8VN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8JYNBq_YNdoWN8' // Placeholder VAPID key
+          vapidKey: 'BH7vUyOsWFl4eqOgNpzM8xtJm6E7iBpOK2V5N4mC8Rj5C2G1Y9wLnP3bX8fM6bN7QK5W2vH9uJ0wR8dF3nG1L4' // You'll need to replace this with your actual VAPID key
         });
         return token;
       } else {

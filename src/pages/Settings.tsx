@@ -224,7 +224,7 @@ const Settings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="w-5 h-5" />
-              Notifications
+              Notifications & Testing
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -239,6 +239,20 @@ const Settings = () => {
                 checked={notifications}
                 onCheckedChange={setNotifications}
               />
+            </div>
+            
+            {/* FCM Testing Section */}
+            <div className="border-t pt-4">
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">FCM Testing</h4>
+                <Button 
+                  onClick={() => navigate('/test-notifications')}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Open Notification Test Center
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
