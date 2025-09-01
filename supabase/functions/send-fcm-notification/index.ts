@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { JWT } from 'https://deno.land/x/djwt@v3.0.1/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +64,76 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
+// Service account configuration
+const serviceAccount = {
+  "type": "service_account",
+  "project_id": "clean-beats-640e0",
+  "private_key_id": "b3f1eb58f7b7def3a409db3204e1d4b8ee834b48",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCpTqDGiT3DGCVU\nY2FpOdsbVgRBlReIWvRVGk+oga1zn9XjrxbWWFyrTXjU6hl2O1lVgS5NjmvMN3n2\nryL3Xr7Tr8dYJyTp9Z6waQTVEvTEORCJ4nmEVfn8NJLVgNqOXafV0zyhOyP/kpsg\nxXHKtBtYTaxca9z3jGLDM07yIdR4qVIbTXeZgeQ6Jh1FHNPW1DDktEtcUlGyo/2B\nOSt7XJH1d4wuvYjJdLOHnOP6GHstr7xMzrYrZAF+5A/hjrij4fjPl9cL9X5Vta6w\n52UtzbLAvDdcan3KQYLUUetmr/tBOE6KcX1ICO7jWqocovzX0VzkYLQPvT04SMhO\n01KI5Lw3AgMBAAECggEAUTDHoO3HlHtLy4AtAo0gKafCOsEIm/ciHH2VnbUyPLR1\nmc4pIXkWV3+7Zj8tHqmvWXWtgru9rh0ce9PY7M+eq10sN3XuGdQT2X1DN/rzLfY/\nnB/jLjccvnlnwMMeDA+VoNC/zoHR7YmcosaMnyxnwJze/yMqv/uukPVV8n+OqJ2g\n1ipcaWYNa+XBIguz83T40pXj8Jp4Pdr0RA3zQsZI6dQtsaR5gFp9i+sIlXBSJAWa\n58pj03R0Tt/Fb0P5Hv7d8fvr9SDTH1eFzhe/AdzsObGCcwe9c9AVYIb1X8FI006s\n6dU61TyBg5nSszN1rpk1Q8Ndaf8zj89pN/84v0e4oQKBgQDsnPa0W8goP4d853Qd\nhYvAtDWwoWajN0G9M0QgOml3EjSCAM5FDBhZx3vxjVuok9ane6dRq+TViLOsi86G\n+tvVYAiVhH2Ii2trRltFVobG4XdmYNIz+cePNDye7Z8N1i4ylkvCm0wffbd1KLyr\norMmMLLs/+yGZd3T7e9K/oW4xQKBgQC3LeZEZlXxqK58VNKIH1vz7HkT0ZQPgn5J\nkOVgnRzYe952NTcl/DZYEbXYMStpKVfNlJru0/K1/HoN6WccS2ow+65r6QvqMIMc\nPS4VJAqxK39dovxHoo4kn9Hex0Zbm2VWkLiSnGL1QcUKjf8z9tyxCnklvDQs8PS0\nZDXnKnHYywKBgQDqQ0Xmr/BuGOgV/Dp0eCIzurhlloc+FZlar4VFu09r+nROOmn+\n5si9KspGD8SuFSEzVTQFooDAAcaSkSD7dydsDNay4ig/pnnGDjSTY+Wwxs4maLn1\nh9nSqM9UMsOFOYcnwrJjjMpDa37V2m1iKYXhy9l62K/fKMAF8c83muPeWQKBgQCm\nbmyuLvDdbW6Dhqn2hc+NM4jayeuln+HQQ3c1LercgscgTb96ospZgFXhRON1W9vr\n7J5MaoQ2d1wKMcu+eILWWIYkg4yQzl0BllC9Yo7YZHYHhKOFDpvpiNAtgo9Zgjoz\nya/5fV+oCIbXzSZXd28S6DokX/hj8NXU5MvY6caguwKBgQC8T7293c+xQW6KxOhF\nou8JEQJvt7F/35C65oZel7BLeVYrGnmENheAJJ3mEtUDBFbtnybjZOagUQzWazYG\ngy2Fy7p86i9MK/Dpu7C0pBGdSSkP1k2pwbsRc2vopRSo5/MSYjuF8FRUOkYH3SgL\nqmpiFD4oNM/ymWP5cStPT2CNgg==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@clean-beats-640e0.iam.gserviceaccount.com",
+  "client_id": "110141202326321971739",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40clean-beats-640e0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+
+async function getAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const exp = now + 3600 // 1 hour from now
+  
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: exp
+  }
+  
+  // Create JWT header
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT'
+  }
+  
+  // Import the private key
+  const privateKeyPem = serviceAccount.private_key.replace(/\\n/g, '\n')
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    new TextEncoder().encode(privateKeyPem),
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign']
+  )
+  
+  // Create JWT token
+  const jwt = await new JWT(header, payload, key).toString()
+  
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt
+    })
+  })
+  
+  const tokenData = await tokenResponse.json()
+  
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get access token: ${tokenData.error_description || tokenData.error}`)
+  }
+  
+  return tokenData.access_token
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -73,26 +144,23 @@ const handler = async (req: Request): Promise<Response> => {
     const fcmRequest: FCMRequest = await req.json();
     console.log('FCM notification request:', fcmRequest);
 
-    // Get FCM server key from environment
-    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY');
-    if (!fcmServerKey) {
-      throw new Error('FCM_SERVER_KEY environment variable not set');
-    }
+    // Get access token for FCM v1 API
+    const accessToken = await getAccessToken();
 
     const results = [];
     
     if (fcmRequest.topic) {
       // Send to topic
-      const result = await sendToTopic(fcmRequest, fcmServerKey);
+      const result = await sendToTopic(fcmRequest, accessToken);
       results.push(result);
     } else if (fcmRequest.userId) {
       // Send to single user
-      const result = await sendToUser(fcmRequest.userId, fcmRequest, fcmServerKey);
+      const result = await sendToUser(fcmRequest.userId, fcmRequest, accessToken);
       results.push(result);
     } else if (fcmRequest.userIds && fcmRequest.userIds.length > 0) {
       // Send to multiple users
       for (const userId of fcmRequest.userIds) {
-        const result = await sendToUser(userId, fcmRequest, fcmServerKey);
+        const result = await sendToUser(userId, fcmRequest, accessToken);
         results.push(result);
       }
     } else {
@@ -132,15 +200,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function sendToTopic(fcmRequest: FCMRequest, fcmServerKey: string) {
+async function sendToTopic(fcmRequest: FCMRequest, accessToken: string) {
   try {
     const message = buildFCMMessage(fcmRequest);
     message.message.topic = fcmRequest.topic;
 
-    const response = await fetch('https://fcm.googleapis.com/v1/projects/clean-beats-fcm/messages:send', {
+    const response = await fetch('https://fcm.googleapis.com/v1/projects/clean-beats-640e0/messages:send', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${fcmServerKey}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(message),
@@ -162,7 +230,7 @@ async function sendToTopic(fcmRequest: FCMRequest, fcmServerKey: string) {
   }
 }
 
-async function sendToUser(userId: string, fcmRequest: FCMRequest, fcmServerKey: string) {
+async function sendToUser(userId: string, fcmRequest: FCMRequest, accessToken: string) {
   try {
     // Get user's active FCM tokens
     const { data: tokens, error } = await supabase
@@ -188,10 +256,10 @@ async function sendToUser(userId: string, fcmRequest: FCMRequest, fcmServerKey: 
         const message = buildFCMMessage(fcmRequest);
         message.message.token = tokenRecord.token;
 
-        const response = await fetch('https://fcm.googleapis.com/v1/projects/clean-beats-fcm/messages:send', {
+        const response = await fetch('https://fcm.googleapis.com/v1/projects/clean-beats-640e0/messages:send', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${fcmServerKey}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(message),

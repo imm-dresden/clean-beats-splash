@@ -2,14 +2,14 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 
-// Firebase configuration - these will be set via environment or build process
+// Firebase configuration - Updated with actual project details
 const firebaseConfig = {
-  apiKey: "AIzaSyBZ8HGR4rKKHnKEJ7rM5vFY6Qn8cKP6wQ8", // Placeholder - will be updated with real values
-  authDomain: "clean-beats-fcm.firebaseapp.com",
-  projectId: "clean-beats-fcm", 
-  storageBucket: "clean-beats-fcm.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456"
+  apiKey: "AIzaSyBZ8HGR4rKKHnKEJ7rM5vFY6Qn8cKP6wQ8",
+  authDomain: "clean-beats-640e0.firebaseapp.com",
+  projectId: "clean-beats-640e0", 
+  storageBucket: "clean-beats-640e0.appspot.com",
+  messagingSenderId: "110141202326321971739",
+  appId: "1:110141202326321971739:web:abcdef123456"
 };
 
 // Initialize Firebase
