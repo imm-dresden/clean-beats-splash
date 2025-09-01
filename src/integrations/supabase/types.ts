@@ -319,6 +319,42 @@ export type Database = {
         }
         Relationships: []
       }
+      fcm_tokens: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       followers: {
         Row: {
           created_at: string
@@ -337,6 +373,42 @@ export type Database = {
           follower_id?: string
           following_id?: string
           id?: string
+        }
+        Relationships: []
+      }
+      notification_deliveries: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          fcm_message_id: string | null
+          id: string
+          metadata: Json | null
+          notification_type: string
+          platform: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          fcm_message_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_type: string
+          platform: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          fcm_message_id?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_type?: string
+          platform?: string
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -534,6 +606,10 @@ export type Database = {
       check_email_exists: {
         Args: { email_to_check: string }
         Returns: boolean
+      }
+      cleanup_fcm_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       get_following_top_streaks: {
         Args: { p_limit?: number; p_user_id: string }
