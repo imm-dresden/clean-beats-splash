@@ -4,12 +4,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compa
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBZ8HGR4rKKHnKEJ7rM5vFY6Qn8cKP6wQ8",
+  apiKey: "AIzaSyBHB6KLrPOUQ04ACC_5LdxfJjDuVEQzyTk",
   authDomain: "clean-beats-640e0.firebaseapp.com",
   projectId: "clean-beats-640e0", 
-  storageBucket: "clean-beats-640e0.appspot.com",
-  messagingSenderId: "110141202326321971739",
-  appId: "1:110141202326321971739:web:abcdef123456"
+  storageBucket: "clean-beats-640e0.firebasestorage.app",
+  messagingSenderId: "853381074677",
+  appId: "1:853381074677:web:db13bc050ef51d1d89ffbc"
 };
 
 // Initialize Firebase
