@@ -171,7 +171,7 @@ class FCMService {
           
           // If that fails, try with VAPID key
           const token = await getToken(this.messaging, {
-            vapidKey: 'BH7vUyOsWFl4eqOgNpzM8xtJm6E7iBpOK2V5N4mC8Rj5C2G1Y9wLnP3bX8fM6bN7QK5W2vH9uJ0wR8dF3nG1L4'
+            vapidKey: 'BAsIKhZnbZ1wfr_LYQpsCrx7putqHnniiLTuy9jOLLmy2768wWOJk_DRrBXTI9v9rkv1V1qUcpxCHwAR9fLtfWY'
           });
           console.log('FCM: Token with VAPID key received:', token ? 'YES' : 'NO');
           return token;
