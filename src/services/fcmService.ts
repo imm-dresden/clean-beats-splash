@@ -120,9 +120,17 @@ class FCMService {
 
   async getRegistrationToken(): Promise<string | null> {
     console.log('FCM: Getting registration token...');
+    console.log('FCM: Platform:', this.platform);
+    console.log('FCM: Service initialized:', this.isInitialized);
+    
     if (!this.isInitialized) {
       console.log('FCM: Service not initialized, initializing now...');
-      await this.initialize();
+      const initResult = await this.initialize();
+      console.log('FCM: Initialization result:', initResult);
+      if (!initResult) {
+        console.error('FCM: Failed to initialize service');
+        return null;
+      }
     }
 
     try {
