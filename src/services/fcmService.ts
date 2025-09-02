@@ -209,22 +209,18 @@ class FCMService {
         timestamp: new Date().toISOString()
       };
 
-      // First, deactivate any existing tokens for this user/platform combination
-      await supabase
-        .from('fcm_tokens')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('platform', this.platform);
-
-      // Insert the new token
+      // Use upsert to either insert new token or update existing one
       const { error } = await supabase
         .from('fcm_tokens')
-        .insert({
+        .upsert({
           user_id: userId,
           token,
           platform: this.platform,
           device_info: deviceInfo,
-          is_active: true
+          is_active: true,
+          last_used_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,platform,token'
         });
 
       if (error) {
