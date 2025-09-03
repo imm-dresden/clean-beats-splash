@@ -23,13 +23,8 @@ import NotificationPermissionBanner from "./components/NotificationPermissionBan
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const location = useLocation();
-  
-  // Hide navigation on splash screen, auth page, and settings page
-  const hideNavigation = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/settings' || location.pathname === '/test-notifications';
-
   return (
-    <div className={hideNavigation ? '' : 'pb-16'}>
+    <div className="pb-16">
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
@@ -45,7 +40,7 @@ const AppContent = () => {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {!hideNavigation && <BottomNavigation />}
+      <BottomNavigation />
       <NotificationPermissionBanner />
     </div>
   );
