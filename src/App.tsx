@@ -60,18 +60,23 @@ const App = () => {
         await notificationService.initializePushNotifications();
         console.log('App: Push notifications initialized');
         
-        // Request permissions automatically like most websites do
-        setTimeout(async () => {
-          console.log('App: Auto-requesting notification permissions...');
-          const permissionGranted = await notificationService.requestPermissions();
-          console.log('App: Notification permissions granted:', permissionGranted);
-        }, 2000); // Wait 2 seconds after page load
+        // Set up notification listeners for real-time push notifications
+        await notificationService.setupNotificationListeners();
+        console.log('App: Notification listeners set up');
+        
+        // Request permissions automatically on mobile (will be handled by banner)
+        // Desktop users can manually enable via settings
       } catch (error) {
         console.error('App: Error initializing notifications:', error);
       }
     };
     
     initializeNotifications();
+
+    // Cleanup on unmount
+    return () => {
+      notificationService.cleanupListeners();
+    };
   }, []);
 
   return (

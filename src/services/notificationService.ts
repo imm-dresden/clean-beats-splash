@@ -2,6 +2,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
+import { fcmService } from './fcmService';
 
 interface NotificationData {
   equipmentId: string;
@@ -13,121 +14,208 @@ class NotificationService {
   private isNative = Capacitor.isNativePlatform();
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
-  async initializeServiceWorker() {
+  async initializeServiceWorker(): Promise<void> {
     if (!this.isNative && 'serviceWorker' in navigator) {
       try {
-        console.log('Attempting to register service worker...');
+        console.log('📋 Registering service worker...');
         this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully:', this.serviceWorkerRegistration);
+        console.log('✅ Service worker registered successfully');
         
-        // Wait for service worker to be ready
+        // Wait for the service worker to be ready
         await navigator.serviceWorker.ready;
-        console.log('Service Worker is ready');
+        console.log('✅ Service worker ready');
         
         // Listen for messages from service worker
         navigator.serviceWorker.addEventListener('message', (event) => {
           console.log('Message from service worker:', event.data);
           if (event.data.type === 'MARK_EQUIPMENT_CLEANED') {
-            // Handle equipment marking logic here
             this.handleEquipmentCleaned(event.data.equipmentId);
           }
         });
       } catch (error) {
-        console.error('Service Worker registration failed:', error);
-        // Continue without service worker
+        console.error('❌ Service worker registration failed:', error);
+        throw error;
       }
     } else {
-      console.log('Service worker not supported or running on native platform');
+      console.warn('⚠️ Service workers not supported');
     }
   }
 
-  private async handleEquipmentCleaned(equipmentId: string) {
-    // This would integrate with your equipment management system
-    console.log(`Equipment ${equipmentId} marked as cleaned from notification`);
+  async initializePushNotifications(): Promise<void> {
+    try {
+      console.log('📱 Initializing push notifications...');
+      
+      if (this.isNative) {
+        // Native platform - use Capacitor
+        await PushNotifications.register();
+        
+        PushNotifications.addListener('registration', (token) => {
+          console.log('Push registration success, token: ' + token.value);
+        });
+        
+        PushNotifications.addListener('registrationError', (error) => {
+          console.error('Push registration error: ', error);
+        });
+        
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('Push received: ', notification);
+        });
+        
+        PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+          console.log('Push action performed: ', notification);
+        });
+      } else {
+        // Web platform - use FCM
+        await fcmService.initialize();
+      }
+      
+      console.log('✅ Push notifications initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize push notifications:', error);
+      throw error;
+    }
+  }
+
+  async hasPermission(): Promise<boolean> {
+    if (this.isNative) {
+      try {
+        const localPerm = await LocalNotifications.checkPermissions();
+        const pushPerm = await PushNotifications.checkPermissions();
+        return localPerm.display === 'granted' && pushPerm.receive === 'granted';
+      } catch {
+        return false;
+      }
+    } else {
+      if (!('Notification' in window)) {
+        return false;
+      }
+      return Notification.permission === 'granted';
+    }
   }
 
   async requestPermissions(): Promise<boolean> {
-    console.log('Requesting notification permissions...');
-    
-    if (this.isNative) {
-      try {
-        // Request both local and push notification permissions
+    try {
+      if (this.isNative) {
+        // Native permissions
         const localPermission = await LocalNotifications.requestPermissions();
         const pushPermission = await PushNotifications.requestPermissions();
         const granted = localPermission.display === 'granted' && pushPermission.receive === 'granted';
         console.log('Native notification permissions granted:', granted);
         return granted;
-      } catch (error) {
-        console.error('Error requesting native permissions:', error);
-        return false;
-      }
-    } else {
-      // Web notifications
-      if ('Notification' in window) {
-        try {
-          console.log('Current notification permission:', Notification.permission);
-          
-          if (Notification.permission === 'granted') {
-            console.log('Notification permissions already granted');
-            return true;
-          }
-          
-          if (Notification.permission === 'denied') {
-            console.log('Notification permissions denied by user');
-            return false;
-          }
-          
-          // Request permission
-          console.log('Requesting notification permission...');
-          const permission = await Notification.requestPermission();
-          console.log('Notification permission result:', permission);
-          return permission === 'granted';
-        } catch (error) {
-          console.error('Error requesting web notification permissions:', error);
+      } else {
+        // Web permissions
+        if (!('Notification' in window)) {
+          console.warn('⚠️ Notifications not supported');
           return false;
         }
-      } else {
-        console.log('Notifications not supported in this browser');
-        return false;
+
+        let permission = Notification.permission;
+        
+        if (permission === 'default') {
+          console.log('🔔 Requesting notification permission...');
+          permission = await Notification.requestPermission();
+        }
+
+        const granted = permission === 'granted';
+        console.log('🔔 Notification permission:', permission);
+
+        if (granted) {
+          // Initialize FCM and register token
+          await this.initializePushNotifications();
+          await fcmService.getToken();
+        }
+
+        return granted;
       }
+    } catch (error) {
+      console.error('❌ Error requesting notification permissions:', error);
+      return false;
     }
   }
 
-  async initializePushNotifications() {
-    if (!this.isNative) return;
-
+  // Listen for incoming notifications and send push notifications
+  async setupNotificationListeners(): Promise<void> {
     try {
-      // Register for push notifications
-      await PushNotifications.register();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      // Listen for push notification registration
-      PushNotifications.addListener('registration', (token) => {
-        console.log('Push registration success, token: ' + token.value);
-        // You can store this token in your backend for sending targeted notifications
-      });
+      console.log('👂 Setting up notification listeners for user:', user.id);
 
-      // Listen for push notification registration errors
-      PushNotifications.addListener('registrationError', (error) => {
-        console.error('Push registration error: ', error);
-      });
+      // Listen for new notifications in real-time
+      const channel = supabase
+        .channel('notifications-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          async (payload) => {
+            console.log('📥 New notification received:', payload.new);
+            
+            const notification = payload.new as any;
+            
+            // Send push notification for certain types
+            const pushNotificationTypes = [
+              'like',
+              'comment', 
+              'comment_reply',
+              'follow',
+              'event_like',
+              'event_comment',
+              'cleaning_reminder',
+              'event_reminder'
+            ];
 
-      // Listen for incoming push notifications
-      PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        console.log('Push received: ', notification);
-      });
+            if (pushNotificationTypes.includes(notification.type)) {
+              try {
+                await supabase.functions.invoke('send-push-notification', {
+                  body: {
+                    user_id: user.id,
+                    title: notification.title,
+                    body: notification.message,
+                    notification_type: notification.type,
+                    data: {
+                      notification_id: notification.id,
+                      type: notification.type,
+                      ...notification.data
+                    }
+                  }
+                });
+                console.log('🚀 Push notification sent for:', notification.type);
+              } catch (error) {
+                console.error('❌ Error sending push notification:', error);
+              }
+            }
+          }
+        )
+        .subscribe();
 
-      // Listen for push notification actions
-      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('Push action performed: ', notification);
-      });
+      // Store the channel reference for cleanup
+      (window as any).__notificationChannel = channel;
+
     } catch (error) {
-      console.error('Error initializing push notifications:', error);
+      console.error('❌ Error setting up notification listeners:', error);
     }
+  }
+
+  // Clean up notification listeners
+  cleanupListeners(): void {
+    const channel = (window as any).__notificationChannel;
+    if (channel) {
+      supabase.removeChannel(channel);
+      delete (window as any).__notificationChannel;
+    }
+  }
+
+  private async handleEquipmentCleaned(equipmentId: string) {
+    console.log(`Equipment ${equipmentId} marked as cleaned from notification`);
   }
 
   async sendTestNotification(): Promise<boolean> {
     console.log('Sending test notification...');
-    console.log('Is native platform:', this.isNative);
     
     // First, create an in-app notification in the database
     try {
@@ -166,7 +254,7 @@ class NotificationService {
               title: 'Clean Beats Test',
               body: 'This is a test notification from Clean Beats! 🎵',
               id: 999999,
-              schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
+              schedule: { at: new Date(Date.now() + 1000) },
               sound: 'default',
               attachments: undefined,
               actionTypeId: '',
@@ -182,55 +270,35 @@ class NotificationService {
       }
     } else {
       // Web test notification
-      console.log('Attempting web notification...');
-      console.log('Notification permission:', Notification.permission);
-      
-      if ('Notification' in window) {
-        if (Notification.permission === 'granted') {
-          try {
-            console.log('Creating web notification...');
-            const notification = new Notification('Clean Beats Test', {
-              body: 'This is a test notification from Clean Beats! 🎵',
-              icon: '/favicon.ico',
-              tag: 'test-notification',
-              requireInteraction: false,
-              silent: false
-            });
-            
-            notification.onclick = () => {
-              console.log('Test notification clicked');
-              window.focus();
-              notification.close();
-            };
-            
-            notification.onerror = (error) => {
-              console.error('Notification error:', error);
-            };
-            
-            notification.onshow = () => {
-              console.log('Notification shown successfully');
-            };
-            
-            // Auto close after 5 seconds
-            setTimeout(() => {
-              notification.close();
-            }, 5000);
-            
-            console.log('Web notification created successfully');
-            return true;
-          } catch (error) {
-            console.error('Error creating notification:', error);
-            return false;
-          }
-        } else {
-          console.log('Notification permission not granted. Current status:', Notification.permission);
-          return true; // Return true because in-app notification was created
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          const notification = new Notification('Clean Beats Test', {
+            body: 'This is a test notification from Clean Beats! 🎵',
+            icon: '/favicon.ico',
+            tag: 'test-notification',
+            requireInteraction: false,
+            silent: false
+          });
+          
+          notification.onclick = () => {
+            console.log('Test notification clicked');
+            window.focus();
+            notification.close();
+          };
+          
+          setTimeout(() => {
+            notification.close();
+          }, 5000);
+          
+          return true;
+        } catch (error) {
+          console.error('Error creating notification:', error);
+          return false;
         }
-      } else {
-        console.log('Notifications not supported in this browser');
-        return true; // Return true because in-app notification was created
       }
     }
+    
+    return true;
   }
 
   async scheduleCleaningNotification(data: NotificationData) {
@@ -238,7 +306,6 @@ class NotificationService {
     const dueDate = new Date(nextCleaningDue);
     const notificationTime = new Date(dueDate.getTime() - (60 * 60 * 1000)); // 1 hour before
 
-    // Don't schedule if the time has already passed
     if (notificationTime <= new Date()) {
       return;
     }
@@ -273,10 +340,8 @@ class NotificationService {
 
   private async scheduleWebNotification(equipmentId: string, equipmentName: string, notificationTime: Date) {
     if (this.serviceWorkerRegistration) {
-      // Use service worker for persistent notifications
       const notificationId = `cleaning-${equipmentId}`;
       
-      // Send notification data to service worker
       this.serviceWorkerRegistration.active?.postMessage({
         type: 'SCHEDULE_NOTIFICATION',
         id: notificationId,
@@ -286,7 +351,6 @@ class NotificationService {
         equipmentId
       });
     } else {
-      // Fallback to setTimeout for browsers without service worker support
       const timeUntilNotification = notificationTime.getTime() - Date.now();
       
       if (timeUntilNotification > 0) {
@@ -332,7 +396,6 @@ class NotificationService {
         console.error('Error canceling notification:', error);
       }
     } else if (this.serviceWorkerRegistration) {
-      // Cancel web notification via service worker
       this.serviceWorkerRegistration.active?.postMessage({
         type: 'CANCEL_NOTIFICATION',
         equipmentId
