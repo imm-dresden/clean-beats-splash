@@ -10,11 +10,29 @@ export const useViewport = () => {
     const checkViewport = () => {
       const width = window.innerWidth;
       const nativePlatform = Capacitor.isNativePlatform();
+      const platform = Capacitor.getPlatform();
       
-      setIsNative(nativePlatform);
+      // Enhanced native detection
+      const hasNativePlugins = Capacitor.isPluginAvailable('PushNotifications') || 
+                              Capacitor.isPluginAvailable('Device') || 
+                              Capacitor.isPluginAvailable('StatusBar');
+      
+      const actuallyNative = nativePlatform || hasNativePlugins;
+      
+      console.log('🔍 Enhanced Platform Detection:', {
+        'Capacitor.getPlatform()': platform,
+        'Capacitor.isNativePlatform()': nativePlatform,
+        'Push Notifications Plugin': Capacitor.isPluginAvailable('PushNotifications'),
+        'Device Plugin': Capacitor.isPluginAvailable('Device'),
+        'StatusBar Plugin': Capacitor.isPluginAvailable('StatusBar'),
+        'Actually Native': actuallyNative,
+        'User Agent': navigator.userAgent.substring(0, 50) + '...'
+      });
+      
+      setIsNative(actuallyNative);
       // If running natively, consider it mobile regardless of screen size
-      setIsMobile(nativePlatform || width < 768);
-      setIsTablet(!nativePlatform && width >= 768 && width < 1024);
+      setIsMobile(actuallyNative || width < 768);
+      setIsTablet(!actuallyNative && width >= 768 && width < 1024);
     };
 
     // Check on mount

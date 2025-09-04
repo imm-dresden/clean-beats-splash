@@ -11,15 +11,30 @@ interface NotificationData {
 }
 
 class NotificationService {
-  private isNative = Capacitor.isNativePlatform();
-  private platform = Capacitor.getPlatform();
+  private isInitialized = false;
+  private isNative = false;
+  private platform = 'web';
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
   constructor() {
-    console.log('NotificationService: Platform detection:', {
-      isNative: this.isNative,
-      platform: this.platform,
-      capacitorPlatform: Capacitor.getPlatform()
+    // Enhanced platform detection
+    const capacitorPlatform = Capacitor.getPlatform();
+    const isCapacitorNative = Capacitor.isNativePlatform();
+    const hasNativePlugins = Capacitor.isPluginAvailable('PushNotifications') || 
+                            Capacitor.isPluginAvailable('Device') || 
+                            Capacitor.isPluginAvailable('StatusBar');
+    
+    this.isNative = isCapacitorNative || hasNativePlugins;
+    this.platform = this.isNative ? capacitorPlatform : 'web';
+    
+    console.log('NotificationService: Enhanced platform detection:', {
+      'Capacitor Platform': capacitorPlatform,
+      'isNativePlatform()': isCapacitorNative,
+      'Push Plugin Available': Capacitor.isPluginAvailable('PushNotifications'),
+      'Device Plugin Available': Capacitor.isPluginAvailable('Device'),
+      'StatusBar Plugin Available': Capacitor.isPluginAvailable('StatusBar'),
+      'Final isNative': this.isNative,
+      'Final platform': this.platform
     });
   }
 
@@ -58,11 +73,18 @@ class NotificationService {
         // Native platform - use Capacitor Push Notifications
         console.log('🔧 Using Capacitor Push Notifications for native platform');
         
+        // Check if plugin is available before using it
+        if (!Capacitor.isPluginAvailable('PushNotifications')) {
+          console.error('❌ PushNotifications plugin not available in native build');
+          throw new Error('PushNotifications plugin not available');
+        }
+        
         // Request permissions first
         const permissionStatus = await PushNotifications.requestPermissions();
         console.log('📱 Native push permission status:', permissionStatus);
         
         if (permissionStatus.receive === 'granted') {
+          console.log('📱 Registering for native push notifications...');
           await PushNotifications.register();
           
           PushNotifications.addListener('registration', async (token) => {
@@ -94,6 +116,9 @@ class NotificationService {
             // Handle notification tap
             this.handleNativePushAction(notification);
           });
+        } else {
+          console.warn('⚠️ Native push notification permissions not granted');
+          throw new Error('Push notification permissions not granted');
         }
       } else {
         // Web platform - use FCM

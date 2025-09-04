@@ -24,12 +24,26 @@ class FCMService {
     const platform = Capacitor.getPlatform();
     const isNative = Capacitor.isNativePlatform();
     
-    console.log('FCM: Detected platform:', platform, 'Is native:', isNative);
+    // Enhanced native detection
+    const hasNativePlugins = Capacitor.isPluginAvailable('PushNotifications') || 
+                            Capacitor.isPluginAvailable('Device') || 
+                            Capacitor.isPluginAvailable('StatusBar');
     
-    this.platform = isNative ? 
+    const actuallyNative = isNative || hasNativePlugins;
+    
+    console.log('FCM: Enhanced Platform Detection:', {
+      'Platform': platform,
+      'isNativePlatform()': isNative, 
+      'Push Notifications Plugin': Capacitor.isPluginAvailable('PushNotifications'),
+      'Device Plugin': Capacitor.isPluginAvailable('Device'),
+      'StatusBar Plugin': Capacitor.isPluginAvailable('StatusBar'),
+      'Actually Native': actuallyNative
+    });
+    
+    this.platform = actuallyNative ? 
       (platform === 'ios' ? 'ios' : 'android') : 'web';
     
-    console.log('FCM: Using platform:', this.platform);
+    console.log('FCM: Final platform determination:', this.platform);
   }
 
   async initialize(): Promise<boolean> {

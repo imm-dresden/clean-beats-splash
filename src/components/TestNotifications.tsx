@@ -25,17 +25,27 @@ export const TestNotifications = () => {
     const detectPlatform = () => {
       const capacitorPlatform = Capacitor.getPlatform();
       const isCapacitorNative = Capacitor.isNativePlatform();
+      const hasNativePlugins = Capacitor.isPluginAvailable('PushNotifications') || 
+                              Capacitor.isPluginAvailable('Device') || 
+                              Capacitor.isPluginAvailable('StatusBar');
+      
+      const actuallyNative = isCapacitorNative || hasNativePlugins;
       
       setPlatformInfo({
-        platform: capacitorPlatform,
-        isNative: isCapacitorNative,
-        serviceType: isCapacitorNative ? 'Capacitor Push Notifications' : 'Firebase Cloud Messaging'
+        platform: actuallyNative ? capacitorPlatform : 'web',
+        isNative: actuallyNative,
+        serviceType: actuallyNative ? 'Capacitor Push Notifications' : 'Firebase Cloud Messaging'
       });
       
-      console.log('Platform Detection:', {
-        capacitorPlatform,
-        isCapacitorNative,
-        viewportDetection: { isNative, platform }
+      console.log('🔍 TestNotifications Platform Detection:', {
+        'Capacitor Platform': capacitorPlatform,
+        'isNativePlatform()': isCapacitorNative,
+        'Push Plugin Available': Capacitor.isPluginAvailable('PushNotifications'),
+        'Device Plugin Available': Capacitor.isPluginAvailable('Device'),
+        'StatusBar Plugin Available': Capacitor.isPluginAvailable('StatusBar'),
+        'Actually Native': actuallyNative,
+        'Final Platform': actuallyNative ? capacitorPlatform : 'web',
+        'Viewport Detection': { isNative, platform }
       });
     };
 
