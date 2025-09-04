@@ -12,7 +12,16 @@ interface NotificationData {
 
 class NotificationService {
   private isNative = Capacitor.isNativePlatform();
+  private platform = Capacitor.getPlatform();
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+
+  constructor() {
+    console.log('NotificationService: Platform detection:', {
+      isNative: this.isNative,
+      platform: this.platform,
+      capacitorPlatform: Capacitor.getPlatform()
+    });
+  }
 
   async initializeServiceWorker(): Promise<void> {
     if (!this.isNative && 'serviceWorker' in navigator) {
@@ -43,33 +52,56 @@ class NotificationService {
 
   async initializePushNotifications(): Promise<void> {
     try {
-      console.log('📱 Initializing push notifications...');
+      console.log('📱 Initializing push notifications for platform:', this.platform, 'Native:', this.isNative);
       
       if (this.isNative) {
-        // Native platform - use Capacitor
-        await PushNotifications.register();
+        // Native platform - use Capacitor Push Notifications
+        console.log('🔧 Using Capacitor Push Notifications for native platform');
         
-        PushNotifications.addListener('registration', (token) => {
-          console.log('Push registration success, token: ' + token.value);
-        });
+        // Request permissions first
+        const permissionStatus = await PushNotifications.requestPermissions();
+        console.log('📱 Native push permission status:', permissionStatus);
         
-        PushNotifications.addListener('registrationError', (error) => {
-          console.error('Push registration error: ', error);
-        });
-        
-        PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          console.log('Push received: ', notification);
-        });
-        
-        PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log('Push action performed: ', notification);
-        });
+        if (permissionStatus.receive === 'granted') {
+          await PushNotifications.register();
+          
+          PushNotifications.addListener('registration', async (token) => {
+            console.log('📱 Native push registration success, token:', token.value);
+            
+            // Save token to database
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                await this.saveNativeTokenToDatabase(token.value, user.id);
+              }
+            } catch (error) {
+              console.error('❌ Error saving native token:', error);
+            }
+          });
+          
+          PushNotifications.addListener('registrationError', (error) => {
+            console.error('📱 Native push registration error:', error);
+          });
+          
+          PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            console.log('📱 Native push received:', notification);
+            // Handle foreground notification
+            this.handleNativePushReceived(notification);
+          });
+          
+          PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+            console.log('📱 Native push action performed:', notification);
+            // Handle notification tap
+            this.handleNativePushAction(notification);
+          });
+        }
       } else {
         // Web platform - use FCM
+        console.log('🌐 Using FCM for web platform');
         await fcmService.initialize();
       }
       
-      console.log('✅ Push notifications initialized');
+      console.log('✅ Push notifications initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize push notifications:', error);
       throw error;
@@ -95,34 +127,49 @@ class NotificationService {
 
   async requestPermissions(): Promise<boolean> {
     try {
+      console.log('🔔 Requesting permissions for platform:', this.platform, 'Native:', this.isNative);
+      
       if (this.isNative) {
-        // Native permissions
-        const localPermission = await LocalNotifications.requestPermissions();
+        // Native permissions - use Capacitor
+        console.log('📱 Requesting native permissions...');
+        
         const pushPermission = await PushNotifications.requestPermissions();
-        const granted = localPermission.display === 'granted' && pushPermission.receive === 'granted';
-        console.log('Native notification permissions granted:', granted);
+        console.log('📱 Push permission result:', pushPermission);
+        
+        const localPermission = await LocalNotifications.requestPermissions();
+        console.log('📱 Local permission result:', localPermission);
+        
+        const granted = pushPermission.receive === 'granted' && localPermission.display === 'granted';
+        console.log('📱 Native notification permissions granted:', granted);
+        
+        if (granted) {
+          // Initialize native push notifications
+          await this.initializePushNotifications();
+        }
+        
         return granted;
       } else {
         // Web permissions
         if (!('Notification' in window)) {
-          console.warn('⚠️ Notifications not supported');
+          console.warn('⚠️ Notifications not supported in this browser');
           return false;
         }
 
         let permission = Notification.permission;
+        console.log('🌐 Current web notification permission:', permission);
         
         if (permission === 'default') {
-          console.log('🔔 Requesting notification permission...');
+          console.log('🔔 Requesting web notification permission...');
           permission = await Notification.requestPermission();
         }
 
         const granted = permission === 'granted';
-        console.log('🔔 Notification permission:', permission);
+        console.log('🔔 Web notification permission result:', permission, 'Granted:', granted);
 
         if (granted) {
           // Initialize FCM and register token
           await this.initializePushNotifications();
-          await fcmService.getToken();
+          await fcmService.getRegistrationToken();
         }
 
         return granted;
@@ -410,6 +457,70 @@ class NotificationService {
       } catch (error) {
         console.error('Error canceling all notifications:', error);
       }
+    }
+  }
+
+  private async saveNativeTokenToDatabase(token: string, userId: string): Promise<boolean> {
+    try {
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: this.platform,
+        timestamp: new Date().toISOString()
+      };
+
+      // Save native token to fcm_tokens table for consistency
+      const { error } = await supabase
+        .from('fcm_tokens')
+        .upsert({
+          user_id: userId,
+          token,
+          platform: this.platform,
+          device_info: deviceInfo,
+          is_active: true,
+          last_used_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,platform,token'
+        });
+
+      if (error) {
+        console.error('Error saving native token:', error);
+        return false;
+      }
+
+      console.log('Native token saved successfully');
+      return true;
+    } catch (error) {
+      console.error('Error saving native token to database:', error);
+      return false;
+    }
+  }
+
+  private handleNativePushReceived(notification: any): void {
+    console.log('Native push notification received in foreground:', notification);
+    
+    // Handle foreground notifications on native platforms
+    // The notification is already displayed by the system, 
+    // but we can handle any additional logic here
+  }
+
+  private handleNativePushAction(notification: any): void {
+    console.log('Native push notification action performed:', notification);
+    
+    // Handle notification tap/action
+    if (notification.notification?.data) {
+      const data = notification.notification.data;
+      this.handleNotificationNavigation(data);
+    }
+  }
+
+  private handleNotificationNavigation(data: any): void {
+    // Handle notification click navigation
+    if (data.type === 'cleaning_reminder' && data.equipmentId) {
+      window.location.href = '/equipment';
+    } else if (data.type === 'comment' && data.postId) {
+      window.location.href = '/community';
+    } else if (data.type === 'event_reminder' && data.eventId) {
+      window.location.href = '/calendar';
     }
   }
 }

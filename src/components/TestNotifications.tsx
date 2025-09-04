@@ -1,15 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { fcmService } from '@/services/fcmService';
+import { notificationService } from '@/services/notificationService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Bell, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { useViewport } from '@/hooks/useViewport';
 
 export const TestNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [platformInfo, setPlatformInfo] = useState({
+    platform: 'unknown',
+    isNative: false,
+    serviceType: 'unknown'
+  });
+  
+  const { isNative, platform } = useViewport();
+
+  useEffect(() => {
+    const detectPlatform = () => {
+      const capacitorPlatform = Capacitor.getPlatform();
+      const isCapacitorNative = Capacitor.isNativePlatform();
+      
+      setPlatformInfo({
+        platform: capacitorPlatform,
+        isNative: isCapacitorNative,
+        serviceType: isCapacitorNative ? 'Capacitor Push Notifications' : 'Firebase Cloud Messaging'
+      });
+      
+      console.log('Platform Detection:', {
+        capacitorPlatform,
+        isCapacitorNative,
+        viewportDetection: { isNative, platform }
+      });
+    };
+
+    detectPlatform();
+  }, [isNative, platform]);
 
   const checkAuthAndToken = async () => {
     console.log('TestNotifications: Checking auth and token...');
@@ -22,48 +53,78 @@ export const TestNotifications = () => {
     console.log('TestNotifications: User authenticated:', currentUser.id);
     setUser(currentUser);
 
-    console.log('TestNotifications: Getting FCM token...');
-    const fcmToken = await fcmService.getRegistrationToken();
-    if (!fcmToken) {
-      console.error('TestNotifications: Failed to get FCM token');
-      toast.error('Failed to get FCM token. Check console for details.');
-      return null;
+    if (platformInfo.isNative) {
+      // For native platforms, we don't need FCM tokens
+      console.log('TestNotifications: Using native platform, no FCM token needed');
+      return { user: currentUser, token: 'native-platform' };
+    } else {
+      // For web platforms, get FCM token
+      console.log('TestNotifications: Getting FCM token for web platform...');
+      const fcmToken = await fcmService.getRegistrationToken();
+      if (!fcmToken) {
+        console.error('TestNotifications: Failed to get FCM token');
+        toast.error('Failed to get FCM token. Check console for details.');
+        return null;
+      }
+      console.log('TestNotifications: FCM token obtained successfully');
+      setToken(fcmToken);
+      return { user: currentUser, token: fcmToken };
     }
-    console.log('TestNotifications: FCM token obtained successfully');
-    setToken(fcmToken);
-    return { user: currentUser, token: fcmToken };
   };
 
-  const initializeFCM = async () => {
+  const initializeNotifications = async () => {
     setLoading(true);
     try {
-      // Initialize FCM service
-      const initialized = await fcmService.initialize();
-      if (!initialized) {
-        toast.error('Failed to initialize FCM service');
-        return;
-      }
+      console.log('Initializing notifications for platform:', platformInfo.platform);
+      
+      if (platformInfo.isNative) {
+        // Use Capacitor for native platforms
+        console.log('Using Capacitor Push Notifications for native platform');
+        
+        // Request permissions using notification service
+        const hasPermissions = await notificationService.requestPermissions();
+        if (!hasPermissions) {
+          toast.error('Notification permissions denied');
+          return;
+        }
 
-      // Request permissions
-      const hasPermissions = await fcmService.requestPermissions();
-      if (!hasPermissions) {
-        toast.error('Notification permissions denied');
-        return;
-      }
+        // Get user for token saving
+        const { user: currentUser } = await checkAuthAndToken() || {};
+        if (!currentUser) return;
 
-      // Get token
-      const { user: currentUser, token: fcmToken } = await checkAuthAndToken() || {};
-      if (!currentUser || !fcmToken) return;
-
-      // Save token to database
-      const saved = await fcmService.saveTokenToDatabase(fcmToken, currentUser.id);
-      if (saved) {
-        toast.success('FCM initialized successfully!');
+        toast.success('Native push notifications initialized successfully!');
+        setToken('native-platform-ready');
       } else {
-        toast.error('Failed to save FCM token');
+        // Use FCM for web platform
+        console.log('Using FCM for web platform');
+        
+        // Initialize FCM service
+        const initialized = await fcmService.initialize();
+        if (!initialized) {
+          toast.error('Failed to initialize FCM service');
+          return;
+        }
+
+        // Request permissions
+        const hasPermissions = await fcmService.requestPermissions();
+        if (!hasPermissions) {
+          toast.error('Notification permissions denied');
+          return;
+        }
+
+        // Get token and save to database
+        const { user: currentUser, token: fcmToken } = await checkAuthAndToken() || {};
+        if (!currentUser || !fcmToken) return;
+
+        const saved = await fcmService.saveTokenToDatabase(fcmToken, currentUser.id);
+        if (saved) {
+          toast.success('FCM initialized successfully!');
+        } else {
+          toast.error('Failed to save FCM token');
+        }
       }
     } catch (error) {
-      console.error('Error initializing FCM:', error);
+      console.error('Error initializing notifications:', error);
       toast.error('Failed to initialize notifications');
     } finally {
       setLoading(false);
@@ -152,18 +213,29 @@ export const TestNotifications = () => {
         <CardContent className="space-y-4">
           {/* Platform Info */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {fcmService.getPlatform() === 'web' && <Monitor className="h-4 w-4" />}
-            {fcmService.getPlatform() === 'ios' && <Smartphone className="h-4 w-4" />}
-            {fcmService.getPlatform() === 'android' && <Tablet className="h-4 w-4" />}
-            Platform: {fcmService.getPlatform()}
+            {platformInfo.platform === 'web' && <Monitor className="h-4 w-4" />}
+            {platformInfo.platform === 'ios' && <Smartphone className="h-4 w-4" />}
+            {platformInfo.platform === 'android' && <Tablet className="h-4 w-4" />}
+            Platform: {platformInfo.platform}
+          </div>
+
+          {/* Service Type */}
+          <div className="text-sm text-muted-foreground">
+            Service: {platformInfo.serviceType}
           </div>
 
           {/* Status */}
           <div className="space-y-2">
             <div className="text-sm">
-              <span className="font-medium">FCM Service:</span>{' '}
-              <span className={fcmService.isServiceInitialized() ? 'text-green-600' : 'text-red-600'}>
-                {fcmService.isServiceInitialized() ? 'Initialized' : 'Not Initialized'}
+              <span className="font-medium">Service Status:</span>{' '}
+              <span className={
+                (platformInfo.isNative || fcmService.isServiceInitialized()) 
+                  ? 'text-green-600' : 'text-red-600'
+              }>
+                {platformInfo.isNative 
+                  ? 'Native Platform Ready' 
+                  : (fcmService.isServiceInitialized() ? 'FCM Initialized' : 'Not Initialized')
+                }
               </span>
             </div>
             {token && (
@@ -179,17 +251,28 @@ export const TestNotifications = () => {
           {/* Action Buttons */}
           <div className="space-y-3">
             <Button 
-              onClick={initializeFCM} 
+              onClick={initializeNotifications} 
               disabled={loading}
               className="w-full"
-              variant={fcmService.isServiceInitialized() ? "outline" : "default"}
+              variant={
+                (platformInfo.isNative || fcmService.isServiceInitialized()) 
+                  ? "outline" : "default"
+              }
             >
-              {loading ? 'Initializing...' : 'Initialize FCM & Request Permissions'}
+              {loading 
+                ? 'Initializing...' 
+                : platformInfo.isNative 
+                  ? 'Initialize Native Notifications & Request Permissions'
+                  : 'Initialize FCM & Request Permissions'
+              }
             </Button>
 
             <Button 
               onClick={sendTestNotification} 
-              disabled={loading || !fcmService.isServiceInitialized()}
+              disabled={
+                loading || 
+                (!platformInfo.isNative && !fcmService.isServiceInitialized())
+              }
               className="w-full"
               variant="secondary"
             >
@@ -210,11 +293,15 @@ export const TestNotifications = () => {
           <div className="mt-6 p-4 bg-muted rounded-lg space-y-2">
             <h4 className="font-medium">Testing Instructions:</h4>
             <ol className="text-sm space-y-1 list-decimal list-inside">
-              <li>Click "Initialize FCM" to set up notifications</li>
+              <li>Click "Initialize" to set up notifications for your platform</li>
               <li>Allow permissions when prompted</li>
               <li>Send a test notification to see it in action</li>
-              <li>Check browser console for detailed logs</li>
-              <li>For mobile testing, use Capacitor with physical devices</li>
+              <li>Check console for detailed logs</li>
+              {platformInfo.isNative ? (
+                <li>Native platform detected - using Capacitor Push Notifications</li>
+              ) : (
+                <li>Web platform detected - using Firebase Cloud Messaging</li>
+              )}
             </ol>
           </div>
         </CardContent>

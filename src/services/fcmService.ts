@@ -21,8 +21,15 @@ class FCMService {
   private platform: 'web' | 'ios' | 'android' = 'web';
 
   constructor() {
-    this.platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 
-                   Capacitor.getPlatform() === 'android' ? 'android' : 'web';
+    const platform = Capacitor.getPlatform();
+    const isNative = Capacitor.isNativePlatform();
+    
+    console.log('FCM: Detected platform:', platform, 'Is native:', isNative);
+    
+    this.platform = isNative ? 
+      (platform === 'ios' ? 'ios' : 'android') : 'web';
+    
+    console.log('FCM: Using platform:', this.platform);
   }
 
   async initialize(): Promise<boolean> {
