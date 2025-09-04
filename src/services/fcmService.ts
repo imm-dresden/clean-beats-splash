@@ -160,18 +160,20 @@ class FCMService {
         console.log('FCM: Current notification permission:', permission);
         
         if (permission === 'denied') {
-          console.error('FCM: Notification permissions denied');
-          return null;
+          console.warn('FCM: Notification permissions previously denied, asking user to re-enable');
+          // For denied permissions, we can't automatically request again
+          // User needs to manually enable in browser settings
+          throw new Error('Notification permissions are denied. Please enable notifications in your browser settings and try again.');
         }
 
-        if (permission === 'default') {
+        if (permission !== 'granted') {
           console.log('FCM: Requesting notification permissions...');
           const newPermission = await Notification.requestPermission();
           console.log('FCM: New permission status:', newPermission);
           
           if (newPermission !== 'granted') {
             console.error('FCM: Permissions not granted');
-            return null;
+            throw new Error('Notification permissions are required for push notifications. Please allow notifications and try again.');
           }
         }
 
