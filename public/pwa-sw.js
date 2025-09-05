@@ -38,7 +38,7 @@ self.addEventListener('install', (event) => {
         console.log('[PWA SW] Caching app shell');
         return cache.addAll(APP_SHELL);
       }),
-      // Skip waiting to activate immediately
+      // Skip waiting to activate immediately for auto-updates
       self.skipWaiting()
     ])
   );

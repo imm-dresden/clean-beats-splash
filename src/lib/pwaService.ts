@@ -83,17 +83,25 @@ class PWAService {
 
         console.log('[PWA] Service worker registered successfully');
 
-        // Listen for updates
+        // Auto-update handling - no user interaction needed
         this.registration.addEventListener('updatefound', () => {
-          console.log('[PWA] Update found');
+          console.log('[PWA] Update found - installing automatically');
           const newWorker = this.registration!.installing;
           
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[PWA] Update available');
-                this.updateAvailable = true;
-                this.showUpdateBanner();
+              if (newWorker.state === 'installed') {
+                console.log('[PWA] Update installed - will activate automatically');
+                // Update will activate automatically due to skipWaiting: true
+                // Just show a brief toast notification
+                if (navigator.serviceWorker.controller) {
+                  setTimeout(() => {
+                    toast({
+                      title: "App Updated",
+                      description: "Clean Beats has been updated to the latest version.",
+                    });
+                  }, 1000);
+                }
               }
             });
           }
@@ -113,12 +121,13 @@ class PWAService {
   }
 
   private setupUpdateChecker() {
-    // Check for updates every 30 minutes
+    // Check for updates every 15 minutes
     setInterval(() => {
       if (this.registration) {
+        console.log('[PWA] Checking for updates...');
         this.registration.update();
       }
-    }, 30 * 60 * 1000);
+    }, 15 * 60 * 1000);
   }
 
   private handleServiceWorkerMessage(data: any) {
@@ -183,28 +192,10 @@ class PWAService {
   }
 
   private showUpdateBanner() {
-    const banner = document.createElement('div');
-    banner.className = 'fixed top-4 left-4 right-4 bg-accent text-accent-foreground p-4 rounded-lg shadow-lg z-50 flex items-center justify-between';
-    banner.innerHTML = `
-      <div>
-        <h3 class="font-semibold">Update Available</h3>
-        <p class="text-sm opacity-90">A new version of Clean Beats is ready</p>
-      </div>
-      <div class="flex gap-2">
-        <button id="pwa-update-later" class="px-3 py-1 bg-white/20 rounded text-sm">Later</button>
-        <button id="pwa-update-now" class="px-3 py-1 bg-white text-accent rounded text-sm font-medium">Update</button>
-      </div>
-    `;
-
-    document.body.appendChild(banner);
-
-    document.getElementById('pwa-update-now')?.addEventListener('click', () => {
-      this.applyUpdate();
-      banner.remove();
-    });
-
-    document.getElementById('pwa-update-later')?.addEventListener('click', () => {
-      banner.remove();
+    // Show a subtle notification instead of a prompt
+    toast({
+      title: "App Updated",
+      description: "Clean Beats has been updated automatically.",
     });
   }
 
