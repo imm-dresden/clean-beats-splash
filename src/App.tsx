@@ -19,6 +19,8 @@ import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import BottomNavigation from "./components/BottomNavigation";
 import NotificationPermissionBanner from "./components/NotificationPermissionBanner";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,8 @@ const AppContent = () => {
       </Routes>
       <BottomNavigation />
       <NotificationPermissionBanner />
+      <PWAInstallPrompt />
+      <PWAUpdatePrompt />
     </div>
   );
 };
