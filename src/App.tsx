@@ -25,6 +25,9 @@ import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
+  const location = useLocation();
+  const hideNavbar = location.pathname === '/auth' || location.pathname === '/';
+  
   return (
     <div className="pb-16">
       <Routes>
@@ -42,7 +45,7 @@ const AppContent = () => {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <BottomNavigation />
+      {!hideNavbar && <BottomNavigation />}
       <NotificationPermissionBanner />
       <PWAInstallPrompt />
       <PWAUpdatePrompt />

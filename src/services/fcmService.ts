@@ -21,22 +21,35 @@ class FCMService {
   private platform: 'web' | 'ios' | 'android' = 'web';
 
   constructor() {
+    this.detectPlatform();
+  }
+
+  private detectPlatform() {
     const platform = Capacitor.getPlatform();
     const isNative = Capacitor.isNativePlatform();
     
-    // Enhanced native detection
-    const hasNativePlugins = Capacitor.isPluginAvailable('PushNotifications') || 
-                            Capacitor.isPluginAvailable('Device') || 
-                            Capacitor.isPluginAvailable('StatusBar');
+    // Enhanced native detection - check for multiple indicators
+    const hasFirebasePlugin = Capacitor.isPluginAvailable('FirebaseMessaging');
+    const hasPushPlugin = Capacitor.isPluginAvailable('PushNotifications');
+    const hasDevicePlugin = Capacitor.isPluginAvailable('Device');
+    const hasStatusBarPlugin = Capacitor.isPluginAvailable('StatusBar');
     
-    const actuallyNative = isNative || hasNativePlugins;
+    const hasNativePlugins = hasFirebasePlugin || hasPushPlugin || hasDevicePlugin || hasStatusBarPlugin;
+    
+    // Check for mobile user agents as additional confirmation
+    const mobileUserAgents = /Android|iPhone|iPad|iPod|Mobile|mobile/i;
+    const isMobileUserAgent = mobileUserAgents.test(navigator.userAgent);
+    
+    const actuallyNative = isNative || (hasNativePlugins && isMobileUserAgent);
     
     console.log('FCM: Enhanced Platform Detection:', {
       'Platform': platform,
       'isNativePlatform()': isNative, 
-      'Push Notifications Plugin': Capacitor.isPluginAvailable('PushNotifications'),
-      'Device Plugin': Capacitor.isPluginAvailable('Device'),
-      'StatusBar Plugin': Capacitor.isPluginAvailable('StatusBar'),
+      'Firebase Plugin': hasFirebasePlugin,
+      'Push Notifications Plugin': hasPushPlugin,
+      'Device Plugin': hasDevicePlugin,
+      'StatusBar Plugin': hasStatusBarPlugin,
+      'Mobile User Agent': isMobileUserAgent,
       'Actually Native': actuallyNative
     });
     
