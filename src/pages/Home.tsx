@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import UserSearch from "@/components/UserSearch";
 import { notificationService } from "@/services/notificationService";
+import { CapacitorNotificationTest } from "@/components/CapacitorNotificationTest";
 
 interface Equipment {
   id: string;
@@ -407,23 +408,9 @@ const Home = () => {
           />
         </div>
 
-        {/* Test Notification Button */}
+        {/* Notification Testing */}
         <div className="mb-6">
-          <Button
-            onClick={handleTestNotification}
-            variant="outline"
-            className="w-full"
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' 
-              ? 'Send Test Notification' 
-              : 'Enable Notifications'}
-          </Button>
-          {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied' && (
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              Notifications blocked. Please enable them in your browser settings.
-            </p>
-          )}
+          <CapacitorNotificationTest />
         </div>
 
         {/* Shortcut Cards */}
