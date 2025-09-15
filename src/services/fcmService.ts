@@ -28,33 +28,39 @@ class FCMService {
     const platform = Capacitor.getPlatform();
     const isNative = Capacitor.isNativePlatform();
     
+    // In mobile builds, Capacitor.isNativePlatform() should return true
+    // Force platform detection based on Capacitor platform
+    const isMobilePlatform = platform === 'ios' || platform === 'android';
+    
     // Enhanced native detection - check for multiple indicators
     const hasFirebasePlugin = Capacitor.isPluginAvailable('FirebaseMessaging');
     const hasPushPlugin = Capacitor.isPluginAvailable('PushNotifications');
     const hasDevicePlugin = Capacitor.isPluginAvailable('Device');
-    const hasStatusBarPlugin = Capacitor.isPluginAvailable('StatusBar');
-    
-    const hasNativePlugins = hasFirebasePlugin || hasPushPlugin || hasDevicePlugin || hasStatusBarPlugin;
     
     // Check for mobile user agents as additional confirmation
     const mobileUserAgents = /Android|iPhone|iPad|iPod|Mobile|mobile/i;
     const isMobileUserAgent = mobileUserAgents.test(navigator.userAgent);
     
-    const actuallyNative = isNative || (hasNativePlugins && isMobileUserAgent);
+    // More aggressive native detection for mobile builds
+    const actuallyNative = isNative || isMobilePlatform || hasFirebasePlugin || hasPushPlugin;
     
     console.log('FCM: Enhanced Platform Detection:', {
       'Platform': platform,
-      'isNativePlatform()': isNative, 
+      'isNativePlatform()': isNative,
+      'isMobilePlatform': isMobilePlatform,
       'Firebase Plugin': hasFirebasePlugin,
       'Push Notifications Plugin': hasPushPlugin,
       'Device Plugin': hasDevicePlugin,
-      'StatusBar Plugin': hasStatusBarPlugin,
       'Mobile User Agent': isMobileUserAgent,
       'Actually Native': actuallyNative
     });
     
-    this.platform = actuallyNative ? 
-      (platform === 'ios' ? 'ios' : 'android') : 'web';
+    // Set platform based on detected environment
+    if (actuallyNative) {
+      this.platform = platform === 'ios' ? 'ios' : 'android';
+    } else {
+      this.platform = 'web';
+    }
     
     console.log('FCM: Final platform determination:', this.platform);
   }
@@ -222,8 +228,23 @@ class FCMService {
         }
       } else {
         console.log('FCM: Getting token for native platform...');
+        
+        // Import FirebaseMessaging for native calls
+        const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+        
+        // Make sure we have permissions before getting token
+        const permissions = await FirebaseMessaging.checkPermissions();
+        if (permissions.receive !== 'granted') {
+          console.log('FCM: Requesting permissions before getting token...');
+          const permResult = await FirebaseMessaging.requestPermissions();
+          if (permResult.receive !== 'granted') {
+            throw new Error('FCM permissions required for token retrieval');
+          }
+        }
+        
         const result = await FirebaseMessaging.getToken();
         console.log('FCM: Native token received:', result?.token ? 'YES' : 'NO');
+        this.currentToken = result.token;
         return result.token;
       }
     } catch (error) {
