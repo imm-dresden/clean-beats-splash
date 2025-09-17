@@ -1,5 +1,4 @@
 import { TestNotifications } from '@/components/TestNotifications';
-import { FCMDiagnostics } from '@/components/FCMDiagnostics';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -24,10 +23,7 @@ export default function TestNotificationsPage() {
         </div>
       </div>
 
-      <div className="px-6 space-y-6">
-        <FCMDiagnostics />
-        <TestNotifications />
-      </div>
+      <TestNotifications />
     </div>
   );
 }
