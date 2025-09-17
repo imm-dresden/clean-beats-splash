@@ -28,36 +28,39 @@ class FCMService {
     const platform = Capacitor.getPlatform();
     const isNative = Capacitor.isNativePlatform();
     
-    // In mobile builds, Capacitor.isNativePlatform() should return true
-    // Force platform detection based on Capacitor platform
-    const isMobilePlatform = platform === 'ios' || platform === 'android';
+    // Android-specific detection improvements
+    const isAndroidPlatform = platform === 'android';
+    const isIOSPlatform = platform === 'ios';
+    const hasAndroidUserAgent = /Android/i.test(navigator.userAgent);
     
     // Enhanced native detection - check for multiple indicators
     const hasFirebasePlugin = Capacitor.isPluginAvailable('FirebaseMessaging');
     const hasPushPlugin = Capacitor.isPluginAvailable('PushNotifications');
     const hasDevicePlugin = Capacitor.isPluginAvailable('Device');
     
-    // Check for mobile user agents as additional confirmation
-    const mobileUserAgents = /Android|iPhone|iPad|iPod|Mobile|mobile/i;
-    const isMobileUserAgent = mobileUserAgents.test(navigator.userAgent);
+    // More aggressive Android detection for FCM
+    const actuallyAndroid = isAndroidPlatform || (hasAndroidUserAgent && (hasFirebasePlugin || hasPushPlugin));
+    const actuallyIOS = isIOSPlatform && (hasFirebasePlugin || hasPushPlugin);
+    const actuallyNative = isNative || actuallyAndroid || actuallyIOS;
     
-    // More aggressive native detection for mobile builds
-    const actuallyNative = isNative || isMobilePlatform || hasFirebasePlugin || hasPushPlugin;
-    
-    console.log('FCM: Enhanced Platform Detection:', {
+    console.log('FCM: Enhanced Android Platform Detection:', {
       'Platform': platform,
       'isNativePlatform()': isNative,
-      'isMobilePlatform': isMobilePlatform,
+      'isAndroidPlatform': isAndroidPlatform,
+      'hasAndroidUserAgent': hasAndroidUserAgent,
       'Firebase Plugin': hasFirebasePlugin,
       'Push Notifications Plugin': hasPushPlugin,
       'Device Plugin': hasDevicePlugin,
-      'Mobile User Agent': isMobileUserAgent,
+      'actuallyAndroid': actuallyAndroid,
+      'actuallyIOS': actuallyIOS,
       'Actually Native': actuallyNative
     });
     
-    // Set platform based on detected environment
-    if (actuallyNative) {
-      this.platform = platform === 'ios' ? 'ios' : 'android';
+    // Set platform based on detected environment with Android priority
+    if (actuallyAndroid) {
+      this.platform = 'android';
+    } else if (actuallyIOS) {
+      this.platform = 'ios';
     } else {
       this.platform = 'web';
     }
@@ -114,33 +117,63 @@ class FCMService {
   }
 
   private async initializeNative(): Promise<void> {
-    // Check permissions
-    const permissions = await FirebaseMessaging.checkPermissions();
-    console.log('Current FCM permissions:', permissions);
+    console.log('FCM: Initializing native platform (Android/iOS)...');
+    
+    try {
+      // Check permissions first
+      const permissions = await FirebaseMessaging.checkPermissions();
+      console.log('FCM: Current permissions:', permissions);
 
-    // Request permissions if needed
-    if (permissions.receive !== 'granted') {
-      const result = await FirebaseMessaging.requestPermissions();
-      if (result.receive !== 'granted') {
-        throw new Error('FCM permissions not granted');
+      // Request permissions if needed
+      if (permissions.receive !== 'granted') {
+        console.log('FCM: Requesting permissions...');
+        const result = await FirebaseMessaging.requestPermissions();
+        console.log('FCM: Permission request result:', result);
+        if (result.receive !== 'granted') {
+          throw new Error('FCM permissions not granted');
+        }
       }
+
+      // Clear any existing listeners to prevent duplicates
+      await FirebaseMessaging.removeAllListeners();
+
+      // Add listeners for native platforms with enhanced error handling
+      await FirebaseMessaging.addListener('tokenReceived', (event) => {
+        console.log('FCM: Token received event:', event);
+        if (event.token) {
+          this.currentToken = event.token;
+          this.handleTokenReceived(event.token);
+        }
+      });
+
+      await FirebaseMessaging.addListener('notificationReceived', (event) => {
+        console.log('FCM: Notification received event:', event);
+        this.handleNotificationReceived(event);
+      });
+
+      await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
+        console.log('FCM: Notification action performed event:', event);
+        this.handleNotificationAction(event);
+      });
+
+      // For Android, ensure we get the token immediately after setup
+      if (this.platform === 'android') {
+        try {
+          const tokenResult = await FirebaseMessaging.getToken();
+          if (tokenResult?.token) {
+            console.log('FCM: Initial Android token retrieved:', tokenResult.token);
+            this.currentToken = tokenResult.token;
+          }
+        } catch (tokenError) {
+          console.error('FCM: Error getting initial Android token:', tokenError);
+        }
+      }
+
+      console.log('FCM: Native platform initialization complete');
+    } catch (error) {
+      console.error('FCM: Error initializing native platform:', error);
+      throw error;
     }
-
-    // Add listeners for native platforms
-    await FirebaseMessaging.addListener('tokenReceived', (event) => {
-      console.log('FCM token received:', event.token);
-      this.handleTokenReceived(event.token);
-    });
-
-    await FirebaseMessaging.addListener('notificationReceived', (event) => {
-      console.log('FCM notification received:', event);
-      this.handleNotificationReceived(event);
-    });
-
-    await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
-      console.log('FCM notification action performed:', event);
-      this.handleNotificationAction(event);
-    });
   }
 
   async requestPermissions(): Promise<boolean> {
@@ -392,13 +425,36 @@ class FCMService {
   }
 
   private handleNotificationClick(data: any): void {
-    // Handle notification click navigation
-    if (data.type === 'cleaning_reminder' && data.equipmentId) {
-      window.location.href = '/equipment';
-    } else if (data.type === 'comment' && data.postId) {
-      window.location.href = '/community';
-    } else if (data.type === 'event_reminder' && data.eventId) {
-      window.location.href = '/calendar';
+    console.log('FCM: Handling notification click with data:', data);
+    
+    // Handle notification click navigation based on type
+    try {
+      if (data.type === 'cleaning_reminder' && data.equipmentId) {
+        console.log('FCM: Navigating to equipment page for cleaning reminder');
+        window.location.href = '/equipment';
+      } else if (data.type === 'comment' && data.postId) {
+        console.log('FCM: Navigating to community page for comment');
+        window.location.href = '/community';
+      } else if (data.type === 'event_reminder' && data.eventId) {
+        console.log('FCM: Navigating to calendar page for event reminder');
+        window.location.href = '/calendar';
+      } else if (data.type === 'like' && data.postId) {
+        console.log('FCM: Navigating to community page for like notification');
+        window.location.href = '/community';
+      } else if (data.type === 'follow') {
+        console.log('FCM: Navigating to profile page for follow notification');
+        window.location.href = '/profile';
+      } else if (data.type === 'streak_milestone') {
+        console.log('FCM: Navigating to equipment page for streak milestone');
+        window.location.href = '/equipment';
+      } else {
+        console.log('FCM: Default navigation to home for unknown notification type');
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('FCM: Error handling notification click:', error);
+      // Fallback to home page
+      window.location.href = '/';
     }
   }
 

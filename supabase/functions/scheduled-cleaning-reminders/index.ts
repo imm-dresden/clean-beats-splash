@@ -199,6 +199,36 @@ const handler = async (req: Request): Promise<Response> => {
           errorCount++;
         } else {
           console.log(`Created notification for ${reminder.userId} - ${reminder.equipmentName}`);
+          
+          // Send push notification via FCM
+          try {
+            const { error: fcmError } = await supabase.functions.invoke('send-fcm-notification', {
+              body: {
+                userId: reminder.userId,
+                title: '🧽 Cleaning Reminder',
+                body: reminder.daysOverdue > 0 
+                  ? `Your ${reminder.equipmentName} is ${reminder.daysOverdue} day${reminder.daysOverdue > 1 ? 's' : ''} overdue for cleaning!`
+                  : `Time to clean your ${reminder.equipmentName} ✨`,
+                data: {
+                  type: 'cleaning_reminder',
+                  equipmentName: reminder.equipmentName,
+                  daysOverdue: reminder.daysOverdue,
+                  reminderType: reminderType,
+                  scheduledTime: now.toISOString(),
+                  userTimezone: reminder.timezone
+                }
+              }
+            });
+
+            if (fcmError) {
+              console.error('Error sending FCM notification for cleaning reminder:', fcmError);
+            } else {
+              console.log(`FCM notification sent for cleaning reminder: ${reminder.equipmentName}`);
+            }
+          } catch (fcmError) {
+            console.error('Exception sending FCM notification for cleaning reminder:', fcmError);
+          }
+          
           successCount++;
         }
 
