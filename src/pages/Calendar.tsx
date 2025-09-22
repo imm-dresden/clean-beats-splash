@@ -81,6 +81,18 @@ const Calendar = () => {
   const [loading, setLoading] = useState(true);
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [filters, setFilters] = useState({
+    showCleaningEvents: true,
+    showRegularEvents: true,
+    eventTypes: {
+      gig: true,
+      show: true,
+      jam: true,
+      rehearsal: true,
+      recording: true,
+      other: true
+    }
+  });
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -189,8 +201,15 @@ const Calendar = () => {
   };
 
   const getEventsForDate = (date: Date) => {
-    const cleaningEventsForDate = cleaningEvents.filter(event => isSameDay(event.date, date));
-    const regularEventsForDate = events.filter(event => isSameDay(new Date(event.start_date), date));
+    const cleaningEventsForDate = filters.showCleaningEvents 
+      ? cleaningEvents.filter(event => isSameDay(event.date, date))
+      : [];
+    const regularEventsForDate = filters.showRegularEvents 
+      ? events.filter(event => 
+          isSameDay(new Date(event.start_date), date) && 
+          filters.eventTypes[event.event_type as keyof typeof filters.eventTypes]
+        )
+      : [];
     return { cleaningEvents: cleaningEventsForDate, events: regularEventsForDate };
   };
 
@@ -198,14 +217,19 @@ const Calendar = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     
-    const monthCleaningEvents = cleaningEvents.filter(event => 
-      event.date >= monthStart && event.date <= monthEnd
-    );
+    const monthCleaningEvents = filters.showCleaningEvents 
+      ? cleaningEvents.filter(event => 
+          event.date >= monthStart && event.date <= monthEnd
+        )
+      : [];
     
-    const monthRegularEvents = events.filter(event => {
-      const eventDate = new Date(event.start_date);
-      return eventDate >= monthStart && eventDate <= monthEnd;
-    });
+    const monthRegularEvents = filters.showRegularEvents 
+      ? events.filter(event => {
+          const eventDate = new Date(event.start_date);
+          return eventDate >= monthStart && eventDate <= monthEnd &&
+                 filters.eventTypes[event.event_type as keyof typeof filters.eventTypes];
+        })
+      : [];
     
     return { cleaningEvents: monthCleaningEvents, events: monthRegularEvents };
   };
@@ -355,6 +379,112 @@ const Calendar = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
             <h1 className="text-xl sm:text-3xl font-bold">Calendar</h1>
+          </div>
+          
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <Button
+              variant={filters.showCleaningEvents ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, showCleaningEvents: !prev.showCleaningEvents }))}
+            >
+              🧹 Cleaning
+            </Button>
+            <Button
+              variant={filters.showRegularEvents ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilters(prev => ({ ...prev, showRegularEvents: !prev.showRegularEvents }))}
+            >
+              📅 Events
+            </Button>
+            <Select 
+              value="filter-events" 
+              onValueChange={(value) => {
+                if (value !== "filter-events") {
+                  const eventType = value as keyof typeof filters.eventTypes;
+                  setFilters(prev => ({
+                    ...prev,
+                    eventTypes: {
+                      ...prev.eventTypes,
+                      [eventType]: !prev.eventTypes[eventType]
+                    }
+                  }));
+                }
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Filter Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="filter-events" disabled>Filter Types</SelectItem>
+                <SelectItem value="gig">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.gig}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    🎸 Gigs
+                  </div>
+                </SelectItem>
+                <SelectItem value="show">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.show}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    🎭 Shows
+                  </div>
+                </SelectItem>
+                <SelectItem value="jam">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.jam}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    🎵 Jam Sessions
+                  </div>
+                </SelectItem>
+                <SelectItem value="rehearsal">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.rehearsal}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    🎶 Rehearsals
+                  </div>
+                </SelectItem>
+                <SelectItem value="recording">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.recording}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    🎙️ Recording
+                  </div>
+                </SelectItem>
+                <SelectItem value="other">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      checked={filters.eventTypes.other}
+                      onChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                    📅 Other
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
             <DialogTrigger asChild>
