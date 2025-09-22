@@ -82,15 +82,15 @@ const Calendar = () => {
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [filters, setFilters] = useState({
-    showCleaningEvents: true,
-    showRegularEvents: true,
+    showCleaningEvents: false,
+    showRegularEvents: false,
     eventTypes: {
-      gig: true,
-      show: true,
-      jam: true,
-      rehearsal: true,
-      recording: true,
-      other: true
+      gig: false,
+      show: false,
+      jam: false,
+      rehearsal: false,
+      recording: false,
+      other: false
     }
   });
   const [eventForm, setEventForm] = useState({
@@ -201,6 +201,16 @@ const Calendar = () => {
   };
 
   const getEventsForDate = (date: Date) => {
+    // If no filters are active, show everything
+    const hasActiveFilters = filters.showCleaningEvents || filters.showRegularEvents || 
+      Object.values(filters.eventTypes).some(type => type);
+    
+    if (!hasActiveFilters) {
+      const cleaningEventsForDate = cleaningEvents.filter(event => isSameDay(event.date, date));
+      const regularEventsForDate = events.filter(event => isSameDay(new Date(event.start_date), date));
+      return { cleaningEvents: cleaningEventsForDate, events: regularEventsForDate };
+    }
+    
     const cleaningEventsForDate = filters.showCleaningEvents 
       ? cleaningEvents.filter(event => isSameDay(event.date, date))
       : [];
@@ -216,6 +226,21 @@ const Calendar = () => {
   const getEventsForMonth = () => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
+    
+    // If no filters are active, show everything
+    const hasActiveFilters = filters.showCleaningEvents || filters.showRegularEvents || 
+      Object.values(filters.eventTypes).some(type => type);
+    
+    if (!hasActiveFilters) {
+      const monthCleaningEvents = cleaningEvents.filter(event => 
+        event.date >= monthStart && event.date <= monthEnd
+      );
+      const monthRegularEvents = events.filter(event => {
+        const eventDate = new Date(event.start_date);
+        return eventDate >= monthStart && eventDate <= monthEnd;
+      });
+      return { cleaningEvents: monthCleaningEvents, events: monthRegularEvents };
+    }
     
     const monthCleaningEvents = filters.showCleaningEvents 
       ? cleaningEvents.filter(event => 
@@ -375,237 +400,194 @@ const Calendar = () => {
     <div className="min-h-screen bg-background text-foreground gradient-hero p-2 sm:p-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
-            <h1 className="text-xl sm:text-3xl font-bold">Calendar</h1>
+        <div className="flex flex-col gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
+              <h1 className="text-xl sm:text-3xl font-bold">Calendar</h1>
+            </div>
+            <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+              <DialogTrigger asChild>
+                <Button onClick={() => openEventDialog()} className="w-full sm:w-auto">
+                  <Plus className="w-4 h-4 mr-2" />
+                  <span className="sm:inline">Add Event</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle>{editingEvent ? 'Edit Event' : 'Create New Event'}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={eventForm.title}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Event title"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="event_type">Type</Label>
+                    <Select value={eventForm.event_type} onValueChange={(value) => setEventForm(prev => ({ ...prev, event_type: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gig">🎸 Gig</SelectItem>
+                        <SelectItem value="show">🎭 Show</SelectItem>
+                        <SelectItem value="jam">🎵 Jam Session</SelectItem>
+                        <SelectItem value="rehearsal">🎶 Rehearsal</SelectItem>
+                        <SelectItem value="recording">🎙️ Recording</SelectItem>
+                        <SelectItem value="other">📅 Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="start_date">Start Date</Label>
+                    <Input
+                      id="start_date"
+                      type="date"
+                      value={eventForm.start_date}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, start_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="start_time">Start Time</Label>
+                    <Input
+                      id="start_time"
+                      type="time"
+                      value={eventForm.start_time}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, start_time: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="end_date">End Date (Optional)</Label>
+                    <Input
+                      id="end_date"
+                      type="date"
+                      value={eventForm.end_date}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, end_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="end_time">End Time (Optional)</Label>
+                    <Input
+                      id="end_time"
+                      type="time"
+                      value={eventForm.end_time}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, end_time: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={eventForm.location}
+                      onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="Venue or location"
+                    />
+                  </div>
+                   <div className="grid gap-2">
+                     <Label htmlFor="description">Description</Label>
+                     <Textarea
+                       id="description"
+                       value={eventForm.description}
+                       onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
+                       placeholder="Additional details"
+                       rows={3}
+                     />
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       id="share-followers"
+                       checked={eventForm.share_with_followers}
+                       onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, share_with_followers: checked }))}
+                     />
+                     <Label htmlFor="share-followers" className="text-sm">
+                       Share with followers
+                     </Label>
+                   </div>
+                  <div className="flex gap-2 pt-4">
+                    <Button 
+                      onClick={handleEventSubmit}
+                      disabled={!eventForm.title}
+                      className="flex-1"
+                    >
+                      {editingEvent ? 'Update Event' : 'Create Event'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowEventDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
           
           {/* Filters */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              variant={filters.showCleaningEvents ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilters(prev => ({ ...prev, showCleaningEvents: !prev.showCleaningEvents }))}
-            >
-              🧹 Cleaning
-            </Button>
-            <Button
-              variant={filters.showRegularEvents ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilters(prev => ({ ...prev, showRegularEvents: !prev.showRegularEvents }))}
-            >
-              📅 Events
-            </Button>
-            <Select 
-              value="filter-events" 
-              onValueChange={(value) => {
-                if (value !== "filter-events") {
-                  const eventType = value as keyof typeof filters.eventTypes;
-                  setFilters(prev => ({
-                    ...prev,
-                    eventTypes: {
-                      ...prev.eventTypes,
-                      [eventType]: !prev.eventTypes[eventType]
-                    }
-                  }));
-                }
-              }}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Filter Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="filter-events" disabled>Filter Types</SelectItem>
-                <SelectItem value="gig">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.gig}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    🎸 Gigs
-                  </div>
-                </SelectItem>
-                <SelectItem value="show">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.show}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    🎭 Shows
-                  </div>
-                </SelectItem>
-                <SelectItem value="jam">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.jam}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    🎵 Jam Sessions
-                  </div>
-                </SelectItem>
-                <SelectItem value="rehearsal">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.rehearsal}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    🎶 Rehearsals
-                  </div>
-                </SelectItem>
-                <SelectItem value="recording">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.recording}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    🎙️ Recording
-                  </div>
-                </SelectItem>
-                <SelectItem value="other">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="checkbox" 
-                      checked={filters.eventTypes.other}
-                      onChange={() => {}}
-                      className="pointer-events-none"
-                    />
-                    📅 Other
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => openEventDialog()} className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="sm:inline">Add Event</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
-              <DialogHeader className="flex-shrink-0">
-                <DialogTitle>{editingEvent ? 'Edit Event' : 'Create New Event'}</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Event title"
-                  />
+          <Card className="glass-card">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-sm font-medium mr-2">Filter:</span>
+                <Button
+                  variant={filters.showCleaningEvents ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, showCleaningEvents: !prev.showCleaningEvents }))}
+                >
+                  🧹 Cleaning Events
+                </Button>
+                <Button
+                  variant={filters.showRegularEvents ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, showRegularEvents: !prev.showRegularEvents }))}
+                >
+                  📅 Events
+                </Button>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(filters.eventTypes).map(([type, isActive]) => (
+                    <Button
+                      key={type}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilters(prev => ({
+                        ...prev,
+                        eventTypes: {
+                          ...prev.eventTypes,
+                          [type]: !prev.eventTypes[type as keyof typeof prev.eventTypes]
+                        }
+                      }))}
+                    >
+                      {eventTypeIcons[type as keyof typeof eventTypeIcons]} {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Button>
+                  ))}
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="event_type">Type</Label>
-                  <Select value={eventForm.event_type} onValueChange={(value) => setEventForm(prev => ({ ...prev, event_type: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gig">🎸 Gig</SelectItem>
-                      <SelectItem value="show">🎭 Show</SelectItem>
-                      <SelectItem value="jam">🎵 Jam Session</SelectItem>
-                      <SelectItem value="rehearsal">🎶 Rehearsal</SelectItem>
-                      <SelectItem value="recording">🎙️ Recording</SelectItem>
-                      <SelectItem value="other">📅 Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="start_date">Start Date</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    value={eventForm.start_date}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, start_date: e.target.value }))}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="start_time">Start Time</Label>
-                  <Input
-                    id="start_time"
-                    type="time"
-                    value={eventForm.start_time}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, start_time: e.target.value }))}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="end_date">End Date (Optional)</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={eventForm.end_date}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, end_date: e.target.value }))}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="end_time">End Time (Optional)</Label>
-                  <Input
-                    id="end_time"
-                    type="time"
-                    value={eventForm.end_time}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, end_time: e.target.value }))}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={eventForm.location}
-                    onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Venue or location"
-                  />
-                </div>
-                 <div className="grid gap-2">
-                   <Label htmlFor="description">Description</Label>
-                   <Textarea
-                     id="description"
-                     value={eventForm.description}
-                     onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
-                     placeholder="Additional details"
-                     rows={3}
-                   />
-                 </div>
-                 <div className="flex items-center space-x-2">
-                   <Switch
-                     id="share-followers"
-                     checked={eventForm.share_with_followers}
-                     onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, share_with_followers: checked }))}
-                   />
-                   <Label htmlFor="share-followers" className="text-sm">
-                     Share with followers
-                   </Label>
-                 </div>
-                <div className="flex gap-2 pt-4">
-                  <Button 
-                    onClick={handleEventSubmit}
-                    disabled={!eventForm.title}
-                    className="flex-1"
+                {(filters.showCleaningEvents || filters.showRegularEvents || Object.values(filters.eventTypes).some(type => type)) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({
+                      showCleaningEvents: false,
+                      showRegularEvents: false,
+                      eventTypes: {
+                        gig: false,
+                        show: false,
+                        jam: false,
+                        rehearsal: false,
+                        recording: false,
+                        other: false
+                      }
+                    })}
                   >
-                    {editingEvent ? 'Update Event' : 'Create Event'}
+                    Clear All
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowEventDialog(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                )}
               </div>
-            </DialogContent>
-          </Dialog>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
