@@ -703,6 +703,10 @@ export type Database = {
           total_users: number
         }[]
       }
+      recalculate_equipment_streaks: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       reset_overdue_streaks: {
         Args: Record<PropertyKey, never>
         Returns: undefined
