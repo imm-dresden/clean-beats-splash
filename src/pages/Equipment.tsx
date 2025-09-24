@@ -225,6 +225,9 @@ const Equipment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // First reset overdue streaks
+      await supabase.rpc('reset_overdue_streaks');
+
       const { data, error } = await supabase
         .from('equipment')
         .select('*')
@@ -1015,13 +1018,14 @@ const Equipment = () => {
                         <Button
                           size="sm"
                           className="flex-1"
+                          disabled={daysUntilDue !== null && daysUntilDue > 0}
                           onClick={(e) => {
                             e.stopPropagation();
                             openCleaningDialog(item);
                           }}
                         >
                           <CheckCircle className="w-4 h-4 mr-1" />
-                          Log Cleaning
+                          {daysUntilDue !== null && daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 'Log Cleaning'}
                         </Button>
                       </div>
                       
@@ -1717,6 +1721,11 @@ const Equipment = () => {
                 </Button>
                 <Button 
                   className="flex-1"
+                  disabled={(() => {
+                    if (!detailEquipment?.next_cleaning_due) return false;
+                    const daysUntilDue = Math.ceil((new Date(detailEquipment.next_cleaning_due).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return daysUntilDue > 0;
+                  })()}
                   onClick={() => {
                     if (detailEquipment) {
                       setIsDetailDialogOpen(false);
@@ -1725,7 +1734,11 @@ const Equipment = () => {
                   }}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Log Cleaning
+                  {(() => {
+                    if (!detailEquipment?.next_cleaning_due) return 'Log Cleaning';
+                    const daysUntilDue = Math.ceil((new Date(detailEquipment.next_cleaning_due).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    return daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 'Log Cleaning';
+                  })()}
                 </Button>
               </div>
             </div>
