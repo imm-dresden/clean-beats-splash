@@ -438,8 +438,22 @@ const Equipment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if equipment was already cleaned today
+      // Check if today is the due date for this equipment
       const today = new Date().toISOString().split('T')[0];
+      const dueDate = selectedEquipment.next_cleaning_due ? 
+        new Date(selectedEquipment.next_cleaning_due).toISOString().split('T')[0] : 
+        selectedEquipment.created_at.split('T')[0]; // First cleaning on creation date
+
+      if (today !== dueDate) {
+        toast({
+          title: "Not Due Today",
+          description: "Cleaning can only be logged on the exact due date to maintain your streak.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if equipment was already cleaned on this due date
       const { data: existingLogs, error: checkError } = await supabase
         .from('cleaning_logs')
         .select('id')
@@ -453,7 +467,7 @@ const Equipment = () => {
       if (existingLogs && existingLogs.length > 0) {
         toast({
           title: "Already Cleaned Today",
-          description: "This equipment has already been cleaned today. Only one cleaning per day is allowed.",
+          description: "This equipment has already been cleaned on this due date.",
           variant: "destructive"
         });
         return;
@@ -727,6 +741,29 @@ const Equipment = () => {
     const diffTime = dueDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const isCleaningAllowed = (item: Equipment) => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // For new equipment, allow cleaning on creation date
+    if (!item.last_cleaned_at) {
+      const creationDate = new Date(item.created_at).toISOString().split('T')[0];
+      return today === creationDate;
+    }
+    
+    // For existing equipment, only allow on exact due date
+    if (!item.next_cleaning_due) return false;
+    const dueDate = new Date(item.next_cleaning_due).toISOString().split('T')[0];
+    return today === dueDate;
+  };
+
+  const hasBeenCleanedToday = (item: Equipment) => {
+    const today = new Date().toISOString().split('T')[0];
+    return cleaningLogs.some(log => 
+      log.equipment_id === item.id && 
+      new Date(log.cleaned_at).toISOString().split('T')[0] === today
+    );
   };
 
   if (loading) {
@@ -1721,11 +1758,7 @@ const Equipment = () => {
                 </Button>
                 <Button 
                   className="flex-1"
-                  disabled={(() => {
-                    if (!detailEquipment?.next_cleaning_due) return false;
-                    const daysUntilDue = Math.ceil((new Date(detailEquipment.next_cleaning_due).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    return daysUntilDue > 0;
-                  })()}
+                  disabled={!detailEquipment || !isCleaningAllowed(detailEquipment) || hasBeenCleanedToday(detailEquipment)}
                   onClick={() => {
                     if (detailEquipment) {
                       setIsDetailDialogOpen(false);
@@ -1735,9 +1768,15 @@ const Equipment = () => {
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   {(() => {
-                    if (!detailEquipment?.next_cleaning_due) return 'Log Cleaning';
-                    const daysUntilDue = Math.ceil((new Date(detailEquipment.next_cleaning_due).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    return daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 'Log Cleaning';
+                    if (!detailEquipment) return 'Log Cleaning';
+                    if (hasBeenCleanedToday(detailEquipment)) return 'Cleaned Today';
+                    if (!isCleaningAllowed(detailEquipment)) {
+                      const daysUntilDue = getDaysUntilDue(detailEquipment.next_cleaning_due);
+                      if (daysUntilDue === null) return 'No Due Date';
+                      return daysUntilDue > 0 ? `Due in ${daysUntilDue} days` : 
+                             daysUntilDue < 0 ? 'Overdue' : 'Due Today';
+                    }
+                    return 'Log Cleaning';
                   })()}
                 </Button>
               </div>
