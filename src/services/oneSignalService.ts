@@ -173,6 +173,77 @@ class OneSignalService {
     }
   }
 
+  async ensureSubscription(): Promise<boolean> {
+    try {
+      const os = window.OneSignal;
+      if (this.platform === 'web' && os) {
+        console.log('OneSignal: Ensuring subscription...');
+        
+        // First check if we already have a subscription ID
+        if (os.Notifications?.getPushSubscriptionId) {
+          try {
+            const existingId = await os.Notifications.getPushSubscriptionId();
+            if (existingId) {
+              console.log('OneSignal: Already subscribed with ID:', !!existingId);
+              this.currentPlayerId = existingId;
+              return true;
+            }
+          } catch (error) {
+            console.warn('OneSignal: Error checking existing subscription:', error);
+          }
+        }
+        
+        // No subscription ID found, try to subscribe
+        console.log('OneSignal: No subscription found, attempting to subscribe...');
+        
+        if (os.Notifications?.subscribe) {
+          try {
+            await os.Notifications.subscribe();
+            console.log('OneSignal: Subscribe call completed');
+            
+            // Wait a moment for subscription to process
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try to get the subscription ID again
+            if (os.Notifications.getPushSubscriptionId) {
+              const newId = await os.Notifications.getPushSubscriptionId();
+              if (newId) {
+                console.log('OneSignal: Got subscription ID after subscribe:', !!newId);
+                this.currentPlayerId = newId;
+                return true;
+              }
+            }
+          } catch (error) {
+            console.warn('OneSignal: Subscribe failed:', error);
+          }
+        }
+        
+        // Fall back to other methods
+        if (os.User?.getOnesignalId) {
+          try {
+            const onesignalId = await os.User.getOnesignalId();
+            if (onesignalId) {
+              console.log('OneSignal: Got onesignal ID as fallback:', !!onesignalId);
+              this.currentPlayerId = onesignalId;
+              return true;
+            }
+          } catch (error) {
+            console.warn('OneSignal: getOnesignalId fallback failed:', error);
+          }
+        }
+        
+        console.warn('OneSignal: Could not establish subscription');
+        return false;
+      } else {
+        // For native platforms, assume subscription is handled natively
+        return true;
+      }
+    } catch (error) {
+      console.error('OneSignal: Error ensuring subscription:', error);
+      return false;
+    }
+  }
+
   async getPlayerId(): Promise<string | null> {
     console.log('OneSignal: Getting player ID...');
     
@@ -194,36 +265,15 @@ class OneSignalService {
         
         console.log('OneSignal: Getting subscription ID for web platform...');
         
-        // For OneSignal v16, use the new API
-        if (os.Notifications?.getPushSubscriptionId) {
-          try {
-            const subscriptionId = await os.Notifications.getPushSubscriptionId();
-            console.log('OneSignal v16: Got subscription ID:', !!subscriptionId);
-            if (subscriptionId) {
-              this.currentPlayerId = subscriptionId;
-              return subscriptionId;
-            }
-          } catch (error) {
-            console.warn('OneSignal v16 getPushSubscriptionId failed:', error);
-          }
+        // First ensure we have a subscription
+        const hasSubscription = await this.ensureSubscription();
+        if (!hasSubscription) {
+          console.warn('OneSignal: Could not establish subscription');
+          return null;
         }
-
-        // Try other possible methods
-        if (os.User?.getOnesignalId) {
-          try {
-            const onesignalId = await os.User.getOnesignalId();
-            console.log('OneSignal: Got onesignal ID:', !!onesignalId);
-            if (onesignalId) {
-              this.currentPlayerId = onesignalId;
-              return onesignalId;
-            }
-          } catch (error) {
-            console.warn('OneSignal getOnesignalId failed:', error);
-          }
-        }
-
-        console.warn('OneSignal: Could not determine player/subscription ID');
-        return null;
+        
+        // Return the player ID we got during ensureSubscription
+        return this.currentPlayerId;
       } else {
         console.log('OneSignal: Getting player ID for native platform...');
         return 'native-platform';
