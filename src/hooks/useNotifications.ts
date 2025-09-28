@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { fcmService } from '@/services/fcmService';
+import { oneSignalService } from '@/services/oneSignalService';
 
 export const useNotifications = () => {
   const [hasPermission, setHasPermission] = useState(false);
@@ -15,20 +15,21 @@ export const useNotifications = () => {
 
   const initializeNotifications = async () => {
     try {
-      // Initialize FCM service
-      const initialized = await fcmService.initialize();
+      // Initialize OneSignal service
+      const initialized = await oneSignalService.initialize();
       if (initialized) {
         // Check existing permissions
         const hasPerms = await checkPermissions();
         setHasPermission(hasPerms);
 
-        // Register token if user is logged in and has permissions
+        // Register player ID if user is logged in and has permissions
         if (hasPerms) {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            const token = await fcmService.getRegistrationToken();
-            if (token) {
-              await fcmService.saveTokenToDatabase(token, user.id);
+            const playerId = await oneSignalService.getPlayerId();
+            if (playerId) {
+              await oneSignalService.savePlayerIdToDatabase(playerId, user.id);
+              await oneSignalService.setExternalUserId(user.id);
             }
           }
         }
@@ -72,20 +73,20 @@ export const useNotifications = () => {
 
   const checkPermissions = async () => {
     try {
-      // Initialize FCM service if not already done
-      const initialized = await fcmService.initialize();
+      // Initialize OneSignal service if not already done
+      const initialized = await oneSignalService.initialize();
       if (!initialized) {
         setHasPermission(false);
         return false;
       }
 
-      // Check if we can get a token (indicates permissions are granted)
-      const token = await fcmService.getRegistrationToken();
-      const hasPerms = !!token;
+      // Check if we can get a player ID (indicates permissions are granted)
+      const playerId = await oneSignalService.getPlayerId();
+      const hasPerms = !!playerId;
       setHasPermission(hasPerms);
       return hasPerms;
     } catch (error) {
-      console.error('Error checking FCM permissions:', error);
+      console.error('Error checking OneSignal permissions:', error);
       setHasPermission(false);
       return false;
     }
@@ -93,8 +94,8 @@ export const useNotifications = () => {
 
   const requestPermissions = async () => {
     try {
-      // Initialize FCM service first
-      const initialized = await fcmService.initialize();
+      // Initialize OneSignal service first
+      const initialized = await oneSignalService.initialize();
       if (!initialized) {
         toast({
           title: "Error",
@@ -105,7 +106,7 @@ export const useNotifications = () => {
       }
 
       // Request permissions
-      const permissionGranted = await fcmService.requestPermissions();
+      const permissionGranted = await oneSignalService.requestPermissions();
       if (!permissionGranted) {
         toast({
           title: "Notifications Disabled",
@@ -116,23 +117,23 @@ export const useNotifications = () => {
         return false;
       }
 
-      // Get registration token
-      const token = await fcmService.getRegistrationToken();
-      if (!token) {
+      // Get player ID
+      const playerId = await oneSignalService.getPlayerId();
+      if (!playerId) {
         toast({
           title: "Error",
-          description: "Failed to get notification token",
+          description: "Failed to get notification player ID",
           variant: "destructive",
         });
         setHasPermission(false);
         return false;
       }
 
-      // Save token to database
+      // Save player ID to database
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const tokenSaved = await fcmService.saveTokenToDatabase(token, user.id);
-        if (!tokenSaved) {
+        const playerIdSaved = await oneSignalService.savePlayerIdToDatabase(playerId, user.id);
+        if (!playerIdSaved) {
           toast({
             title: "Error",
             description: "Failed to register for notifications",
@@ -141,8 +142,8 @@ export const useNotifications = () => {
           return false;
         }
 
-        // Subscribe to cleaning reminders topic
-        await fcmService.subscribeToTopic(`user_${user.id}_cleaning_reminders`);
+        // Set external user ID for targeting
+        await oneSignalService.setExternalUserId(user.id);
       }
 
       setHasPermission(true);
@@ -152,7 +153,7 @@ export const useNotifications = () => {
       });
       return true;
     } catch (error) {
-      console.error('Error requesting FCM permissions:', error);
+      console.error('Error requesting OneSignal permissions:', error);
       toast({
         title: "Error",
         description: "Failed to enable notifications",
@@ -177,8 +178,8 @@ export const useNotifications = () => {
         return;
       }
 
-      // Send notification via FCM edge function
-      const { error } = await supabase.functions.invoke('send-fcm-notification', {
+      // Send notification via OneSignal edge function
+      const { error } = await supabase.functions.invoke('send-onesignal-notification', {
         body: {
           userId: user.id,
           title,
@@ -219,7 +220,7 @@ export const useNotifications = () => {
       return false;
     }
 
-    return await fcmService.sendTestNotification(user.id);
+    return await oneSignalService.sendTestNotification(user.id);
   };
 
   return {

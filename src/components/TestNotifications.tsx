@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { fcmService } from '@/services/fcmService';
+import { oneSignalService } from '@/services/oneSignalService';
 import { notificationService } from '@/services/notificationService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import { useViewport } from '@/hooks/useViewport';
 
 export const TestNotifications = () => {
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [platformInfo, setPlatformInfo] = useState({
     platform: 'unknown',

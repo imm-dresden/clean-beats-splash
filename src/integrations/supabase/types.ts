@@ -384,6 +384,8 @@ export type Database = {
           id: string
           metadata: Json | null
           notification_type: string
+          onesignal_message_id: string | null
+          onesignal_player_id: string | null
           platform: string
           status: string
           user_id: string
@@ -395,6 +397,8 @@ export type Database = {
           id?: string
           metadata?: Json | null
           notification_type: string
+          onesignal_message_id?: string | null
+          onesignal_player_id?: string | null
           platform: string
           status: string
           user_id: string
@@ -406,6 +410,8 @@ export type Database = {
           id?: string
           metadata?: Json | null
           notification_type?: string
+          onesignal_message_id?: string | null
+          onesignal_player_id?: string | null
           platform?: string
           status?: string
           user_id?: string
@@ -441,6 +447,42 @@ export type Database = {
           read?: boolean
           title?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onesignal_subscriptions: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          platform: string
+          player_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform: string
+          player_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          platform?: string
+          player_id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

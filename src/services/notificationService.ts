@@ -2,7 +2,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
-import { fcmService } from './fcmService';
+import { oneSignalService } from './oneSignalService';
 
 interface NotificationData {
   equipmentId: string;
@@ -70,7 +70,7 @@ class NotificationService {
       console.log('📱 Initializing push notifications for platform:', this.platform, 'Native:', this.isNative);
       
       if (this.isNative) {
-        // Native platform - use Capacitor Push Notifications
+        // Native platform - use Capacitor Push Notifications (for backward compatibility)
         console.log('🔧 Using Capacitor Push Notifications for native platform');
         
         // Check if plugin is available before using it
@@ -121,9 +121,9 @@ class NotificationService {
           throw new Error('Push notification permissions not granted');
         }
       } else {
-        // Web platform - use FCM
-        console.log('🌐 Using FCM for web platform');
-        await fcmService.initialize();
+        // Web platform - use OneSignal
+        console.log('🌐 Using OneSignal for web platform');
+        await oneSignalService.initialize();
       }
       
       console.log('✅ Push notifications initialized successfully');
@@ -143,10 +143,14 @@ class NotificationService {
         return false;
       }
     } else {
-      if (!('Notification' in window)) {
+      // Use OneSignal for web
+      try {
+        await oneSignalService.initialize();
+        const playerId = await oneSignalService.getPlayerId();
+        return !!playerId;
+      } catch {
         return false;
       }
-      return Notification.permission === 'granted';
     }
   }
 
@@ -174,27 +178,24 @@ class NotificationService {
         
         return granted;
       } else {
-        // Web permissions
-        if (!('Notification' in window)) {
-          console.warn('⚠️ Notifications not supported in this browser');
-          return false;
-        }
-
-        let permission = Notification.permission;
-        console.log('🌐 Current web notification permission:', permission);
+        // Web permissions - use OneSignal
+        console.log('🌐 Requesting OneSignal permissions...');
         
-        if (permission === 'default') {
-          console.log('🔔 Requesting web notification permission...');
-          permission = await Notification.requestPermission();
-        }
-
-        const granted = permission === 'granted';
-        console.log('🔔 Web notification permission result:', permission, 'Granted:', granted);
+        const granted = await oneSignalService.requestPermissions();
+        console.log('🔔 OneSignal permission result:', granted);
 
         if (granted) {
-          // Initialize FCM and register token
+          // Initialize OneSignal and register player ID
           await this.initializePushNotifications();
-          await fcmService.getRegistrationToken();
+          const playerId = await oneSignalService.getPlayerId();
+          
+          if (playerId) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await oneSignalService.savePlayerIdToDatabase(playerId, user.id);
+              await oneSignalService.setExternalUserId(user.id);
+            }
+          }
         }
 
         return granted;
@@ -243,12 +244,11 @@ class NotificationService {
 
             if (pushNotificationTypes.includes(notification.type)) {
               try {
-                await supabase.functions.invoke('send-push-notification', {
+                await supabase.functions.invoke('send-onesignal-notification', {
                   body: {
-                    user_id: user.id,
+                    userId: user.id,
                     title: notification.title,
                     body: notification.message,
-                    notification_type: notification.type,
                     data: {
                       notification_id: notification.id,
                       type: notification.type,
@@ -256,9 +256,9 @@ class NotificationService {
                     }
                   }
                 });
-                console.log('🚀 Push notification sent for:', notification.type);
+                console.log('🚀 OneSignal notification sent for:', notification.type);
               } catch (error) {
-                console.error('❌ Error sending push notification:', error);
+                console.error('❌ Error sending OneSignal notification:', error);
               }
             }
           }
@@ -341,36 +341,18 @@ class NotificationService {
         return false;
       }
     } else {
-      // Web test notification
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          const notification = new Notification('Clean Beats Test', {
-            body: 'This is a test notification from Clean Beats! 🎵',
-            icon: '/favicon.ico',
-            tag: 'test-notification',
-            requireInteraction: false,
-            silent: false
-          });
-          
-          notification.onclick = () => {
-            console.log('Test notification clicked');
-            window.focus();
-            notification.close();
-          };
-          
-          setTimeout(() => {
-            notification.close();
-          }, 5000);
-          
-          return true;
-        } catch (error) {
-          console.error('Error creating notification:', error);
-          return false;
+      // Web test notification using OneSignal
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          return await oneSignalService.sendTestNotification(user.id);
         }
+        return false;
+      } catch (error) {
+        console.error('Error sending OneSignal test notification:', error);
+        return false;
       }
     }
-    
-    return true;
   }
 
   async scheduleCleaningNotification(data: NotificationData) {
@@ -493,7 +475,7 @@ class NotificationService {
         timestamp: new Date().toISOString()
       };
 
-      // Save native token to fcm_tokens table for consistency
+      // Save to legacy FCM tokens table for backward compatibility
       const { error } = await supabase
         .from('fcm_tokens')
         .upsert({
@@ -521,32 +503,13 @@ class NotificationService {
   }
 
   private handleNativePushReceived(notification: any): void {
-    console.log('Native push notification received in foreground:', notification);
-    
-    // Handle foreground notifications on native platforms
-    // The notification is already displayed by the system, 
-    // but we can handle any additional logic here
+    console.log('Native push notification received:', notification);
+    // Handle the notification display for native platforms
   }
 
   private handleNativePushAction(notification: any): void {
     console.log('Native push notification action performed:', notification);
-    
-    // Handle notification tap/action
-    if (notification.notification?.data) {
-      const data = notification.notification.data;
-      this.handleNotificationNavigation(data);
-    }
-  }
-
-  private handleNotificationNavigation(data: any): void {
-    // Handle notification click navigation
-    if (data.type === 'cleaning_reminder' && data.equipmentId) {
-      window.location.href = '/equipment';
-    } else if (data.type === 'comment' && data.postId) {
-      window.location.href = '/community';
-    } else if (data.type === 'event_reminder' && data.eventId) {
-      window.location.href = '/calendar';
-    }
+    // Handle navigation for native platforms
   }
 }
 
