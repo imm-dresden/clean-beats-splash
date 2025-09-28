@@ -32,6 +32,17 @@
     <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
     
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "cb8bf8b6-8599-4258-9e1b-56333c230041",
+        });
+      });
+    </script>
+
     <!-- PWA Preload Critical Resources -->
     <link rel="preload" href="/src/main.tsx" as="script" />
     <link rel="preload" href="/src/index.css" as="style" />
