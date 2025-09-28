@@ -86,13 +86,11 @@ class OneSignalService {
       throw new Error('OneSignal SDK not loaded');
     }
 
-    // Wait for OneSignal to be ready
-    await window.OneSignal.init({
-      appId: this.appId,
-      allowLocalhostAsSecureOrigin: true,
-    });
+    // Since OneSignal is already initialized via the HTML script,
+    // we just need to set up our event listeners
+    console.log('OneSignal: SDK already loaded, setting up event listeners...');
 
-    // Set up event listeners
+    // Set up event listeners (safe to call multiple times)
     window.OneSignal.on('subscriptionChange', (isSubscribed: boolean) => {
       console.log('OneSignal subscription changed:', isSubscribed);
       this.handleSubscriptionChange(isSubscribed);
