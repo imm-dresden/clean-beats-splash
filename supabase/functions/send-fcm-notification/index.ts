@@ -218,7 +218,7 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : 'Unknown error'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -254,7 +254,7 @@ async function sendToTopic(fcmRequest: FCMRequest, accessToken: string) {
 
   } catch (error) {
     console.error('Error sending to topic:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
@@ -344,7 +344,7 @@ async function sendToUser(userId: string, fcmRequest: FCMRequest, accessToken: s
 
       } catch (error) {
         console.error('Error sending to token:', tokenRecord.token, error);
-        results.push({ success: false, error: error.message, platform: tokenRecord.platform });
+        results.push({ success: false, error: error instanceof Error ? error.message : 'Unknown error', platform: tokenRecord.platform });
       }
     }
 
@@ -357,7 +357,7 @@ async function sendToUser(userId: string, fcmRequest: FCMRequest, accessToken: s
 
   } catch (error) {
     console.error('Error in sendToUser:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
