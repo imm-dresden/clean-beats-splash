@@ -73,16 +73,20 @@ class OneSignalService {
 
   private async initializeWeb(): Promise<void> {
     console.log('OneSignal: Initializing web platform...');
-    
-    // Check if OneSignal is available
-    if (typeof window === 'undefined' || !window.OneSignal) {
-      throw new Error('OneSignal SDK not loaded');
-    }
+
+    // Wait for SDK to be present and ready (max ~6s)
+    const waitForSDK = async () => {
+      const start = Date.now();
+      while (typeof window === 'undefined' || !window.OneSignal) {
+        await new Promise((r) => setTimeout(r, 150));
+        if (Date.now() - start > 6000) throw new Error('OneSignal SDK not loaded');
+      }
+    };
+
+    await waitForSDK();
 
     // Wait for OneSignal to be ready (v16 API)
     try {
-      // OneSignal v16 doesn't use .on() method anymore
-      // Just wait for it to be ready
       await new Promise((resolve) => {
         if (window.OneSignalDeferred) {
           window.OneSignalDeferred.push(() => resolve(true));
@@ -92,10 +96,6 @@ class OneSignalService {
       });
 
       console.log('OneSignal: SDK ready, setting up listeners...');
-      
-      // For v16, we don't set up listeners here - they're handled differently
-      // The SDK will handle subscription changes internally
-      
     } catch (error) {
       console.warn('OneSignal setup warning:', error);
     }

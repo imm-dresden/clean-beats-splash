@@ -123,7 +123,10 @@ class NotificationService {
       } else {
         // Web platform - use OneSignal
         console.log('🌐 Using OneSignal for web platform');
-        await oneSignalService.initialize();
+        const ok = await oneSignalService.initialize();
+        if (!ok) {
+          throw new Error('OneSignal initialization failed');
+        }
       }
       
       console.log('✅ Push notifications initialized successfully');
