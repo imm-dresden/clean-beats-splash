@@ -96,6 +96,22 @@ class OneSignalService {
       });
 
       console.log('OneSignal: SDK ready, setting up listeners...');
+
+      // Ensure OneSignal service worker is registered and active
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          const hasOSWorker = regs.some(r => r.active?.scriptURL?.includes('OneSignalSDKWorker.js'));
+          if (!hasOSWorker) {
+            console.log('OneSignal: Registering SDK service worker...');
+            await navigator.serviceWorker.register('/OneSignalSDKWorker.js', { scope: '/' });
+          } else {
+            console.log('OneSignal: SDK service worker already registered');
+          }
+        }
+      } catch (swErr) {
+        console.warn('OneSignal: Could not verify/register service worker:', swErr);
+      }
     } catch (error) {
       console.warn('OneSignal setup warning:', error);
     }
@@ -201,16 +217,16 @@ class OneSignalService {
             await os.Notifications.subscribe();
             console.log('OneSignal: Subscribe call completed');
             
-            // Wait a moment for subscription to process
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Try to get the subscription ID again
+            // Poll for subscription ID for up to 5 seconds
             if (os.Notifications.getPushSubscriptionId) {
-              const newId = await os.Notifications.getPushSubscriptionId();
-              if (newId) {
-                console.log('OneSignal: Got subscription ID after subscribe:', !!newId);
-                this.currentPlayerId = newId;
-                return true;
+              for (let i = 0; i < 10; i++) {
+                const newId = await os.Notifications.getPushSubscriptionId();
+                if (newId) {
+                  console.log('OneSignal: Got subscription ID after subscribe:', !!newId);
+                  this.currentPlayerId = newId;
+                  return true;
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
               }
             }
           } catch (error) {
