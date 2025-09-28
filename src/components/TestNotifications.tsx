@@ -34,7 +34,7 @@ export const TestNotifications = () => {
       setPlatformInfo({
         platform: actuallyNative ? capacitorPlatform : 'web',
         isNative: actuallyNative,
-        serviceType: actuallyNative ? 'Capacitor Push Notifications' : 'Firebase Cloud Messaging'
+        serviceType: actuallyNative ? 'Capacitor Push Notifications' : 'OneSignal Web Push'
       });
       
       console.log('🔍 TestNotifications Platform Detection:', {
@@ -52,8 +52,8 @@ export const TestNotifications = () => {
     detectPlatform();
   }, [isNative, platform]);
 
-  const checkAuthAndToken = async () => {
-    console.log('TestNotifications: Checking auth and token...');
+  const checkAuthAndPlayerId = async () => {
+    console.log('TestNotifications: Checking auth and player ID...');
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
       console.error('TestNotifications: No authenticated user');
@@ -64,21 +64,21 @@ export const TestNotifications = () => {
     setUser(currentUser);
 
     if (platformInfo.isNative) {
-      // For native platforms, we don't need FCM tokens
-      console.log('TestNotifications: Using native platform, no FCM token needed');
-      return { user: currentUser, token: 'native-platform' };
+      // For native platforms, we don't need OneSignal player IDs
+      console.log('TestNotifications: Using native platform, no OneSignal player ID needed');
+      return { user: currentUser, playerId: 'native-platform' };
     } else {
-      // For web platforms, get FCM token
-      console.log('TestNotifications: Getting FCM token for web platform...');
-      const fcmToken = await fcmService.getRegistrationToken();
-      if (!fcmToken) {
-        console.error('TestNotifications: Failed to get FCM token');
-        toast.error('Failed to get FCM token. Check console for details.');
+      // For web platforms, get OneSignal player ID
+      console.log('TestNotifications: Getting OneSignal player ID for web platform...');
+      const oneSignalPlayerId = await oneSignalService.getPlayerId();
+      if (!oneSignalPlayerId) {
+        console.error('TestNotifications: Failed to get OneSignal player ID');
+        toast.error('Failed to get OneSignal player ID. Check console for details.');
         return null;
       }
-      console.log('TestNotifications: FCM token obtained successfully');
-      setToken(fcmToken);
-      return { user: currentUser, token: fcmToken };
+      console.log('TestNotifications: OneSignal player ID obtained successfully');
+      setPlayerId(oneSignalPlayerId);
+      return { user: currentUser, playerId: oneSignalPlayerId };
     }
   };
 
@@ -99,38 +99,40 @@ export const TestNotifications = () => {
         }
 
         // Get user for token saving
-        const { user: currentUser } = await checkAuthAndToken() || {};
+        const { user: currentUser } = await checkAuthAndPlayerId() || {};
         if (!currentUser) return;
 
         toast.success('Native push notifications initialized successfully!');
-        setToken('native-platform-ready');
+        setPlayerId('native-platform-ready');
       } else {
-        // Use FCM for web platform
-        console.log('Using FCM for web platform');
+        // Use OneSignal for web platform
+        console.log('Using OneSignal for web platform');
         
-        // Initialize FCM service
-        const initialized = await fcmService.initialize();
+        // Initialize OneSignal service
+        const initialized = await oneSignalService.initialize();
         if (!initialized) {
-          toast.error('Failed to initialize FCM service');
+          toast.error('Failed to initialize OneSignal service');
           return;
         }
 
         // Request permissions
-        const hasPermissions = await fcmService.requestPermissions();
+        const hasPermissions = await oneSignalService.requestPermissions();
         if (!hasPermissions) {
           toast.error('Notification permissions denied');
           return;
         }
 
-        // Get token and save to database
-        const { user: currentUser, token: fcmToken } = await checkAuthAndToken() || {};
-        if (!currentUser || !fcmToken) return;
+        // Get player ID and save to database
+        const { user: currentUser, playerId: oneSignalPlayerId } = await checkAuthAndPlayerId() || {};
+        if (!currentUser || !oneSignalPlayerId) return;
 
-        const saved = await fcmService.saveTokenToDatabase(fcmToken, currentUser.id);
+        const saved = await oneSignalService.savePlayerIdToDatabase(oneSignalPlayerId, currentUser.id);
         if (saved) {
-          toast.success('FCM initialized successfully!');
+          // Set external user ID for targeting
+          await oneSignalService.setExternalUserId(currentUser.id);
+          toast.success('OneSignal initialized successfully!');
         } else {
-          toast.error('Failed to save FCM token');
+          toast.error('Failed to save OneSignal player ID');
         }
       }
     } catch (error) {
@@ -144,10 +146,10 @@ export const TestNotifications = () => {
   const sendTestNotification = async () => {
     setLoading(true);
     try {
-      const { user: currentUser } = await checkAuthAndToken() || {};
+      const { user: currentUser } = await checkAuthAndPlayerId() || {};
       if (!currentUser) return;
 
-      const { error } = await supabase.functions.invoke('send-fcm-notification', {
+      const { error } = await supabase.functions.invoke('send-onesignal-notification', {
         body: {
           userId: currentUser.id,
           title: 'Test Notification 🧽',
@@ -156,8 +158,7 @@ export const TestNotifications = () => {
             type: 'test',
             timestamp: new Date().toISOString(),
             action: 'open_app'
-          },
-          priority: 'high'
+          }
         }
       });
 
@@ -179,9 +180,9 @@ export const TestNotifications = () => {
   const sendTopicNotification = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('send-fcm-notification', {
+      const { error } = await supabase.functions.invoke('send-onesignal-notification', {
         body: {
-          topic: 'all_users',
+          filters: [{"field": "tag", "key": "app", "relation": "=", "value": "clean-beats"}],
           title: 'Community Update 🎉',
           body: 'Check out the latest updates in Clean Beats!',
           data: {
@@ -217,7 +218,7 @@ export const TestNotifications = () => {
             Push Notification Testing
           </CardTitle>
           <CardDescription>
-            Test Firebase Cloud Messaging across different platforms
+            Test OneSignal Push Notifications across different platforms
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -239,20 +240,20 @@ export const TestNotifications = () => {
             <div className="text-sm">
               <span className="font-medium">Service Status:</span>{' '}
               <span className={
-                (platformInfo.isNative || fcmService.isServiceInitialized()) 
+                (platformInfo.isNative || oneSignalService.isServiceInitialized()) 
                   ? 'text-green-600' : 'text-red-600'
               }>
                 {platformInfo.isNative 
                   ? 'Native Platform Ready' 
-                  : (fcmService.isServiceInitialized() ? 'FCM Initialized' : 'Not Initialized')
+                  : (oneSignalService.isServiceInitialized() ? 'OneSignal Initialized' : 'Not Initialized')
                 }
               </span>
             </div>
-            {token && (
+            {playerId && (
               <div className="text-sm">
-                <span className="font-medium">Token:</span>{' '}
+                <span className="font-medium">Player ID:</span>{' '}
                 <code className="text-xs bg-muted p-1 rounded">
-                  {token.substring(0, 20)}...
+                  {playerId.length > 20 ? `${playerId.substring(0, 20)}...` : playerId}
                 </code>
               </div>
             )}
@@ -265,7 +266,7 @@ export const TestNotifications = () => {
               disabled={loading}
               className="w-full"
               variant={
-                (platformInfo.isNative || fcmService.isServiceInitialized()) 
+                (platformInfo.isNative || oneSignalService.isServiceInitialized()) 
                   ? "outline" : "default"
               }
             >
@@ -273,7 +274,7 @@ export const TestNotifications = () => {
                 ? 'Initializing...' 
                 : platformInfo.isNative 
                   ? 'Initialize Native Notifications & Request Permissions'
-                  : 'Initialize FCM & Request Permissions'
+                  : 'Initialize OneSignal & Request Permissions'
               }
             </Button>
 
@@ -281,7 +282,7 @@ export const TestNotifications = () => {
               onClick={sendTestNotification} 
               disabled={
                 loading || 
-                (!platformInfo.isNative && !fcmService.isServiceInitialized())
+                (!platformInfo.isNative && !oneSignalService.isServiceInitialized())
               }
               className="w-full"
               variant="secondary"
@@ -310,7 +311,7 @@ export const TestNotifications = () => {
               {platformInfo.isNative ? (
                 <li>Native platform detected - using Capacitor Push Notifications</li>
               ) : (
-                <li>Web platform detected - using Firebase Cloud Messaging</li>
+                <li>Web platform detected - using OneSignal Web Push</li>
               )}
             </ol>
           </div>
