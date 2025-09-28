@@ -204,7 +204,7 @@ const Auth = () => {
           variant: "destructive",
         });
       } else {
-        navigate("/home");
+        navigate("/");
       }
     } catch (error) {
       toast({

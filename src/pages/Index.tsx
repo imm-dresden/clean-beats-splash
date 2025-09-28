@@ -9,8 +9,8 @@ const Index = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-      // Navigate to auth after splash screen
-      navigate("/auth");
+      // Navigate to home (which will show login if not authenticated)
+      navigate("/");
     }, 4000); // Duration to enjoy the splash animation
 
     return () => clearTimeout(timer);

@@ -28,9 +28,9 @@ const AppContent = () => {
   return (
     <div className="pb-16">
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/index" element={<Index />} />
         <Route path="/equipment" element={<Equipment />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/community" element={<Community />} />

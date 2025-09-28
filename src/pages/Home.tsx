@@ -1,4 +1,4 @@
-import { Settings, Music, Bell, Users, Calendar, Headphones, TrendingUp, Trophy, Flame, Crown, User } from "lucide-react";
+import { Settings, Music, Bell, Users, Calendar, Headphones, TrendingUp, Trophy, Flame, Crown, User, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,12 +37,26 @@ const Home = () => {
   const [topStreaks, setTopStreaks] = useState<TopStreak[]>([]);
   const [userRank, setUserRank] = useState<number>(0);
   const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    getCurrentUser();
-    fetchUnreadNotifications();
-    fetchDashboardData();
-    initializeNotifications();
+    // Check if user is authenticated first
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      setIsLoading(false);
+      
+      // Only proceed with other initializations if user is authenticated
+      if (user) {
+        getCurrentUser();
+        fetchUnreadNotifications();
+        fetchDashboardData();
+        initializeNotifications();
+      }
+    };
+    
+    checkAuth();
 
     // Set up real-time subscription for notifications
     const setupRealtimeNotifications = async () => {
@@ -382,15 +396,28 @@ const Home = () => {
               <Music className="w-6 h-6 text-accent" />
             </div>
           </div>
-          <Button
-            onClick={() => navigate("/settings")}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Settings className="w-4 h-4" />
-            Settings
-          </Button>
+          <div className="flex items-center gap-2">
+            {!isAuthenticated && !isLoading && (
+              <Button
+                onClick={() => navigate("/auth")}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Login
+              </Button>
+            )}
+            <Button
+              onClick={() => navigate("/settings")}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </Button>
+          </div>
         </div>
 
         {/* Greeting */}
