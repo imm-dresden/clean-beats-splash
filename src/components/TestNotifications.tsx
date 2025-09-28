@@ -321,6 +321,19 @@ export const TestNotifications = () => {
                 <li>Web platform detected - using OneSignal Web Push</li>
               )}
             </ol>
+            
+            {!platformInfo.isNative && (
+              <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+                <h5 className="font-medium text-yellow-800">⚠️ Domain Configuration Required</h5>
+                <p className="text-sm text-yellow-700 mt-1">
+                  If you see "Registration failed" errors, OneSignal needs to be configured for this domain. 
+                  In production, add your domain to the OneSignal dashboard under Settings → Platforms → Web Push.
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  For development: <code className="bg-yellow-200 px-1 rounded">*.lovableproject.com</code> should be added to allowed origins.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

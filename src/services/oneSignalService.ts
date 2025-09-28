@@ -119,31 +119,56 @@ class OneSignalService {
       if (this.platform === 'web' && os) {
         console.log('OneSignal: Requesting permissions...');
         
-        // For OneSignal v16, use the Notifications API
+        // Check if notifications are supported
+        if (!('Notification' in window)) {
+          console.error('OneSignal: Notifications not supported in this browser');
+          return false;
+        }
+
+        // Check current permission status
+        const currentPermission = Notification.permission;
+        console.log('OneSignal: Current permission status:', currentPermission);
+
+        if (currentPermission === 'denied') {
+          console.warn('OneSignal: Notifications are blocked. User needs to enable them manually.');
+          return false;
+        }
+
+        if (currentPermission === 'granted') {
+          console.log('OneSignal: Permissions already granted');
+          return true;
+        }
+
+        // Try OneSignal v16 API first
         if (os.Notifications?.requestPermission) {
           try {
+            console.log('OneSignal: Using v16 requestPermission...');
             const permission = await os.Notifications.requestPermission();
             console.log('OneSignal v16 permission result:', permission);
             return permission === 'granted';
           } catch (error) {
-            console.warn('OneSignal v16 permission failed, trying fallback...', error);
+            console.warn('OneSignal v16 permission failed:', error);
+            // Fall through to browser API
           }
         }
         
         // Fallback to browser API
-        if ('Notification' in window) {
-          const browserPermission = await Notification.requestPermission();
-          console.log('Browser permission result:', browserPermission);
-          return browserPermission === 'granted';
-        }
-        
-        return false;
+        console.log('OneSignal: Using browser requestPermission...');
+        const browserPermission = await Notification.requestPermission();
+        console.log('Browser permission result:', browserPermission);
+        return browserPermission === 'granted';
       } else {
         // For native platforms, permissions are handled by the native OneSignal SDK
         return true;
       }
     } catch (error) {
       console.error('Error requesting OneSignal permissions:', error);
+      
+      // Provide user-friendly error message
+      if (error.message?.includes('Registration failed')) {
+        console.error('OneSignal domain authorization required. Please configure your domain in OneSignal dashboard.');
+      }
+      
       return false;
     }
   }
