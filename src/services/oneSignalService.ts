@@ -74,12 +74,12 @@ class OneSignalService {
   private async initializeWeb(): Promise<void> {
     console.log('OneSignal: Initializing web platform...');
 
-    // Wait for SDK to be present and ready (max ~6s)
+    // Wait for SDK to be present and ready (max ~3s)
     const waitForSDK = async () => {
       const start = Date.now();
       while (typeof window === 'undefined' || !window.OneSignal) {
         await new Promise((r) => setTimeout(r, 150));
-        if (Date.now() - start > 6000) throw new Error('OneSignal SDK not loaded');
+        if (Date.now() - start > 3000) throw new Error('OneSignal SDK not loaded');
       }
     };
 
@@ -96,6 +96,34 @@ class OneSignalService {
       });
 
       console.log('OneSignal: SDK ready, setting up listeners...');
+
+      // Attach OneSignal event listeners (v16 + legacy)
+      try {
+        const os = window.OneSignal;
+        if (os?.Notifications?.addEventListener) {
+          os.Notifications.addEventListener('permissionChange', (e: any) => {
+            console.log('OneSignal: permissionChange', e?.permission ?? e);
+          });
+          os.Notifications.addEventListener('subscriptionChange', (e: any) => {
+            console.log('OneSignal: subscriptionChange', e);
+            const isSubscribed = !!(e?.to?.subscribed ?? e?.subscribed ?? e === true);
+            this.handleSubscriptionChange(isSubscribed);
+          });
+          os.Notifications.addEventListener('pushSubscriptionChange', (e: any) => {
+            console.log('OneSignal: pushSubscriptionChange', e);
+            const isSubscribed = !!(e?.to?.id || e?.to?.token || e?.id);
+            this.handleSubscriptionChange(isSubscribed);
+          });
+        } else if (typeof os?.on === 'function') {
+          // Legacy SDK
+          os.on('subscriptionChange', (isSubscribed: boolean) => {
+            console.log('OneSignal: legacy subscriptionChange', isSubscribed);
+            this.handleSubscriptionChange(!!isSubscribed);
+          });
+        }
+      } catch (listenerErr) {
+        console.warn('OneSignal: Could not attach listeners:', listenerErr);
+      }
 
       // Ensure OneSignal service worker is registered and active
       try {
@@ -217,16 +245,16 @@ class OneSignalService {
             await os.Notifications.subscribe();
             console.log('OneSignal: Subscribe call completed');
             
-            // Poll for subscription ID for up to 5 seconds
+            // Poll for subscription ID (fast timeout ~3.2s)
             if (os.Notifications.getPushSubscriptionId) {
-              for (let i = 0; i < 10; i++) {
+              for (let i = 0; i < 8; i++) {
                 const newId = await os.Notifications.getPushSubscriptionId();
                 if (newId) {
                   console.log('OneSignal: Got subscription ID after subscribe:', !!newId);
                   this.currentPlayerId = newId;
                   return true;
                 }
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 400));
               }
             }
           } catch (error) {
@@ -281,10 +309,13 @@ class OneSignalService {
         
         console.log('OneSignal: Getting subscription ID for web platform...');
         
-        // First ensure we have a subscription
-        const hasSubscription = await this.ensureSubscription();
+        // First ensure we have a subscription (hard timeout)
+        const hasSubscription = await Promise.race([
+          this.ensureSubscription(),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
+        ]);
         if (!hasSubscription) {
-          console.warn('OneSignal: Could not establish subscription');
+          console.warn('OneSignal: Could not establish subscription (timed out)');
           return null;
         }
         
