@@ -707,6 +707,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      recalculate_strict_streaks: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       reset_overdue_streaks: {
         Args: Record<PropertyKey, never>
         Returns: undefined
