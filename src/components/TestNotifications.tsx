@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { oneSignalService } from '@/services/oneSignalService';
@@ -31,28 +31,35 @@ export const TestNotifications = () => {
       
       const actuallyNative = isCapacitorNative || hasNativePlugins;
       
-      setPlatformInfo({
+      const newPlatformInfo = {
         platform: actuallyNative ? capacitorPlatform : 'web',
         isNative: actuallyNative,
         serviceType: actuallyNative ? 'Capacitor Push Notifications' : 'OneSignal Web Push'
-      });
+      };
       
-      console.log('🔍 TestNotifications Platform Detection:', {
-        'Capacitor Platform': capacitorPlatform,
-        'isNativePlatform()': isCapacitorNative,
-        'Push Plugin Available': Capacitor.isPluginAvailable('PushNotifications'),
-        'Device Plugin Available': Capacitor.isPluginAvailable('Device'),
-        'StatusBar Plugin Available': Capacitor.isPluginAvailable('StatusBar'),
-        'Actually Native': actuallyNative,
-        'Final Platform': actuallyNative ? capacitorPlatform : 'web',
-        'Viewport Detection': { isNative, platform }
+      // Only update if the platform info has actually changed
+      setPlatformInfo(prevInfo => {
+        if (prevInfo.platform !== newPlatformInfo.platform || 
+            prevInfo.isNative !== newPlatformInfo.isNative ||
+            prevInfo.serviceType !== newPlatformInfo.serviceType) {
+          console.log('🔍 TestNotifications Platform Detection Updated:', {
+            'Previous': prevInfo,
+            'New': newPlatformInfo,
+            'Capacitor Platform': capacitorPlatform,
+            'isNativePlatform()': isCapacitorNative,
+            'Actually Native': actuallyNative,
+            'Viewport Detection': { isNative, platform }
+          });
+          return newPlatformInfo;
+        }
+        return prevInfo;
       });
     };
 
     detectPlatform();
-  }, [isNative, platform]);
+  }, []); // Empty dependency array - only run once on mount
 
-  const checkAuthAndPlayerId = async () => {
+  const checkAuthAndPlayerId = useCallback(async () => {
     console.log('TestNotifications: Checking auth and player ID...');
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
@@ -80,7 +87,7 @@ export const TestNotifications = () => {
       setPlayerId(oneSignalPlayerId);
       return { user: currentUser, playerId: oneSignalPlayerId };
     }
-  };
+  }, [platformInfo.isNative]);
 
   const initializeNotifications = async () => {
     setLoading(true);

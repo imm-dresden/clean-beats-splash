@@ -79,37 +79,25 @@ class OneSignalService {
       throw new Error('OneSignal SDK not loaded');
     }
 
-    // SDK is loaded via index.html; just set up listeners defensively
-    const os = window.OneSignal;
+    // Wait for OneSignal to be ready (v16 API)
+    try {
+      // OneSignal v16 doesn't use .on() method anymore
+      // Just wait for it to be ready
+      await new Promise((resolve) => {
+        if (window.OneSignalDeferred) {
+          window.OneSignalDeferred.push(() => resolve(true));
+        } else {
+          resolve(true);
+        }
+      });
 
-    // v15 style API
-    if (os && typeof os.on === 'function') {
-      try {
-        os.on('subscriptionChange', (isSubscribed: boolean) => {
-          console.log('OneSignal subscription changed:', isSubscribed);
-          this.handleSubscriptionChange(isSubscribed);
-        });
-        os.on('notificationPermissionChange', (permissionChange: any) => {
-          console.log('OneSignal permission changed:', permissionChange);
-        });
-      } catch (e) {
-        console.warn('OneSignal legacy event binding failed, continuing...', e);
-      }
-    }
-
-    // v16 style API
-    if (os?.Notifications?.addEventListener) {
-      try {
-        os.Notifications.addEventListener('permissionChange', (ev: any) => {
-          console.log('OneSignal v16 permissionChange:', ev);
-        });
-        os.Notifications.addEventListener('subscriptionChange', (ev: any) => {
-          console.log('OneSignal v16 subscriptionChange:', ev);
-          this.handleSubscriptionChange(!!ev?.current?.optedIn || !!ev?.to?.optedIn);
-        });
-      } catch (e) {
-        console.warn('OneSignal v16 event binding failed, continuing...', e);
-      }
+      console.log('OneSignal: SDK ready, setting up listeners...');
+      
+      // For v16, we don't set up listeners here - they're handled differently
+      // The SDK will handle subscription changes internally
+      
+    } catch (error) {
+      console.warn('OneSignal setup warning:', error);
     }
 
     console.log('OneSignal: Web initialization complete');
@@ -129,22 +117,27 @@ class OneSignalService {
     try {
       const os = window.OneSignal;
       if (this.platform === 'web' && os) {
-        // Try v16 API first
+        console.log('OneSignal: Requesting permissions...');
+        
+        // For OneSignal v16, use the Notifications API
         if (os.Notifications?.requestPermission) {
-          const res = await os.Notifications.requestPermission();
-          const granted = res === 'granted' || res === true;
-          console.log('OneSignal v16 permission result:', res);
-          return granted;
+          try {
+            const permission = await os.Notifications.requestPermission();
+            console.log('OneSignal v16 permission result:', permission);
+            return permission === 'granted';
+          } catch (error) {
+            console.warn('OneSignal v16 permission failed, trying fallback...', error);
+          }
         }
-        // Fallback to legacy API
-        if (typeof os.requestPermission === 'function') {
-          const permission = await os.requestPermission();
-          console.log('OneSignal legacy permission result:', permission);
-          return !!permission;
+        
+        // Fallback to browser API
+        if ('Notification' in window) {
+          const browserPermission = await Notification.requestPermission();
+          console.log('Browser permission result:', browserPermission);
+          return browserPermission === 'granted';
         }
-        // Final fallback to browser API
-        const browserRes = await Notification.requestPermission();
-        return browserRes === 'granted';
+        
+        return false;
       } else {
         // For native platforms, permissions are handled by the native OneSignal SDK
         return true;
@@ -157,13 +150,9 @@ class OneSignalService {
 
   async getPlayerId(): Promise<string | null> {
     console.log('OneSignal: Getting player ID...');
-    console.log('OneSignal: Platform:', this.platform);
-    console.log('OneSignal: Service initialized:', this.isInitialized);
     
     if (!this.isInitialized) {
-      console.log('OneSignal: Service not initialized, initializing now...');
       const initResult = await this.initialize();
-      console.log('OneSignal: Initialization result:', initResult);
       if (!initResult) {
         console.error('OneSignal: Failed to initialize service');
         return null;
@@ -178,32 +167,40 @@ class OneSignalService {
           return null;
         }
         
-        console.log('OneSignal: Getting player ID for web platform...');
+        console.log('OneSignal: Getting subscription ID for web platform...');
         
-        // Try multiple APIs depending on SDK version
-        if (typeof os.getPlayerId === 'function') {
-          const pid = await os.getPlayerId();
-          if (pid) return pid;
-        }
-        if (os.User?.getOnesignalId) {
-          const pid = await os.User.getOnesignalId();
-          if (pid) return pid;
-        }
+        // For OneSignal v16, use the new API
         if (os.Notifications?.getPushSubscriptionId) {
-          const pid = await os.Notifications.getPushSubscriptionId();
-          if (pid) return pid;
-        }
-        if (os.User?.pushSubscription?.id) {
-          const pid = os.User.pushSubscription.id;
-          if (pid) return pid;
+          try {
+            const subscriptionId = await os.Notifications.getPushSubscriptionId();
+            console.log('OneSignal v16: Got subscription ID:', !!subscriptionId);
+            if (subscriptionId) {
+              this.currentPlayerId = subscriptionId;
+              return subscriptionId;
+            }
+          } catch (error) {
+            console.warn('OneSignal v16 getPushSubscriptionId failed:', error);
+          }
         }
 
-        console.warn('OneSignal: Could not determine player ID');
+        // Try other possible methods
+        if (os.User?.getOnesignalId) {
+          try {
+            const onesignalId = await os.User.getOnesignalId();
+            console.log('OneSignal: Got onesignal ID:', !!onesignalId);
+            if (onesignalId) {
+              this.currentPlayerId = onesignalId;
+              return onesignalId;
+            }
+          } catch (error) {
+            console.warn('OneSignal getOnesignalId failed:', error);
+          }
+        }
+
+        console.warn('OneSignal: Could not determine player/subscription ID');
         return null;
       } else {
         console.log('OneSignal: Getting player ID for native platform...');
-        // For native platforms, we need to implement OneSignal native SDK integration
-        // This would require Capacitor OneSignal plugin
         return 'native-platform';
       }
     } catch (error) {
