@@ -76,7 +76,7 @@ class PWAService {
     if ('serviceWorker' in navigator) {
       try {
         console.log('[PWA] Registering service worker...');
-        this.registration = await navigator.serviceWorker.register('/pwa-sw.js', {
+        this.registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/',
           updateViaCache: 'none'
         });
