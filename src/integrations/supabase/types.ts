@@ -682,6 +682,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      fix_equipment_streak: {
+        Args: { p_equipment_id: string }
+        Returns: {
+          cleaning_count: number
+          equipment_name: string
+          new_streak: number
+          old_streak: number
+        }[]
+      }
       get_following_top_streaks: {
         Args: { p_limit?: number; p_user_id: string }
         Returns: {
