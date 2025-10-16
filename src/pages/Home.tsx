@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import UserSearch from "@/components/UserSearch";
 import { notificationService } from "@/services/notificationService";
-import { TestNotifications } from "@/components/TestNotifications";
+// import { TestNotifications } from "@/components/TestNotifications";
 
 interface Equipment {
   id: string;
