@@ -27,6 +27,8 @@ interface Equipment {
   last_cleaned_at?: string;
   next_cleaning_due?: string;
   cleaning_frequency_days: number;
+  current_streak: number;
+  best_streak: number;
 }
 
 interface UserProfile {
@@ -595,13 +597,17 @@ const Profile = () => {
                                   ) : 'Not scheduled'}
                                 </Badge>
                               )}
+                              {/* Current Streak */}
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-sm">🔥</span>
+                                <span className="text-xs font-semibold text-orange-500">
+                                  {item.current_streak} day streak
+                                </span>
+                              </div>
                               {item.last_cleaned_at && (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm">🔥</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    Last: {format(new Date(item.last_cleaned_at), 'MMM dd')}
-                                  </span>
-                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  Last: {format(new Date(item.last_cleaned_at), 'MMM dd')}
+                                </span>
                               )}
                             </div>
                           </CardContent>
@@ -614,10 +620,16 @@ const Profile = () => {
                 {/* Equipment Stats */}
                 <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
                   <h3 className="text-foreground text-lg font-semibold mb-4">Equipment Stats</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-accent">{equipment.length}</div>
                       <div className="text-sm text-muted-foreground">Total Items</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-500">
+                        {Math.max(...equipment.map(e => e.current_streak), 0)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Best Streak</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-500">
@@ -713,6 +725,28 @@ const Profile = () => {
               {/* Cleaning Schedule */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Cleaning Schedule</h3>
+                
+                {/* Current Streak Display */}
+                <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Current Streak</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-3xl">🔥</span>
+                        <span className="text-3xl font-bold text-orange-500">{detailEquipment?.current_streak}</span>
+                        <span className="text-lg text-muted-foreground">days</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Label className="text-sm font-medium text-muted-foreground">Best Streak</Label>
+                      <div className="flex items-center gap-2 justify-end mt-1">
+                        <span className="text-2xl">🏆</span>
+                        <span className="text-2xl font-bold text-yellow-500">{detailEquipment?.best_streak}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {detailEquipment?.last_cleaned_at && (
                     <div className="p-4 bg-muted/50 rounded-lg">
