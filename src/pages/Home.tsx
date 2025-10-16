@@ -437,9 +437,9 @@ const Home = () => {
         </div>
 
         {/* Push Notifications Testing */}
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <TestNotifications />
-        </div>
+        </div> */}
 
         {/* Shortcut Cards */}
         <div className="grid grid-cols-2 gap-3 mb-6">
