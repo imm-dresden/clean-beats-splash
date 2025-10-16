@@ -5,7 +5,7 @@ const BottomNavigation = () => {
   const location = useLocation();
   
   const navItems = [
-    { icon: Home, label: "Home", path: "/home" },
+    { icon: Home, label: "Home", path: "https://clean-beats-splash.lovable.app/" },
     { icon: Headphones, label: "Equipment", path: "/equipment" },
     { icon: Calendar, label: "Calendar", path: "/calendar" },
     { icon: Users, label: "Community", path: "/community" },
@@ -19,16 +19,29 @@ const BottomNavigation = () => {
           const isActive = location.pathname === item.path || 
             (location.pathname === "/" && item.path === "/home");
           const Icon = item.icon;
+          const isExternal = item.path.startsWith('http');
           
-          return (
+          const className = `flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 min-w-0 flex-1 ${
+            isActive 
+              ? "text-accent bg-accent/10" 
+              : "text-muted-foreground hover:text-foreground active:scale-95"
+          }`;
+          
+          return isExternal ? (
+            <a
+              key={item.path}
+              href={item.path}
+              className={className}
+              style={{ touchAction: 'manipulation' }}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span className="text-xs font-medium truncate">{item.label}</span>
+            </a>
+          ) : (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 min-w-0 flex-1 ${
-                isActive 
-                  ? "text-accent bg-accent/10" 
-                  : "text-muted-foreground hover:text-foreground active:scale-95"
-              }`}
+              className={className}
               style={{ touchAction: 'manipulation' }}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
